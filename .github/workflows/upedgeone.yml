@@ -1,0 +1,49 @@
+# 工作流名称
+name: Non-Destructive Sync (Merge Upstream)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  merge-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # 步骤1：Checkout 你的目标分支
+      - name: Checkout target branch
+        uses: actions/checkout@v3
+        with:
+          ref: 'edgeone-pages'
+          #在这个模式下，通常不需要显式传递 token，Actions 会自动使用
+          #如果遇到权限问题，可以取消下面这行的注释
+          #token: ${{ secrets.GITHUB_TOKEN }} 
+          # 获取完整的提交历史，有助于合并
+          fetch-depth: 0
+
+      # 步骤2：设置 Git 用户信息
+      - name: Set git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # 步骤3：添加上游仓库并拉取更新
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/suyangzuo/suyangzuo.github.io.git
+          git fetch upstream
+
+      # 步骤4：将上游的 dev 分支合并到你的分支
+      # 关键修改在这里！
+      - name: Merge upstream/dev
+        run: |
+          # 加上 --allow-unrelated-histories 解决你的报错
+          # 加上 -X theirs 表示如果遇到文件冲突，优先使用上游(upstream)的版本
+          # 这样可以最大程度保证自动化成功，但会覆盖你修改过的同名文件内容(除了 workflow 文件本身)
+          git merge upstream/dev --no-ff --allow-unrelated-histories -X theirs -m "Merge upstream/dev into edgeone-pages"
+
+      # 步骤5：将合并后的结果推送到你的仓库
+      - name: Push changes
+        run: git push origin edgeone-pages
