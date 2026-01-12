@@ -6,8 +6,8 @@
 
 ### 环境要求
 
-- Node.js >= 18.16.1
-- npm >= 9.0.0
+- Node.js >= 24.0.0
+- npm >= 10.0.0
 
 ### 安装步骤
 
@@ -24,10 +24,24 @@
    npm install
    ```
 
-3. **启动开发服务器**
+3. **配置环境变量（可选）**
+
+   复制 `.env.example` 为 `.env` 并根据需要修改：
 
    ```bash
-   npm run live
+   cp .env.example .env
+   ```
+
+4. **启动开发服务器**
+
+   ```bash
+   npm run dev
+   ```
+
+   或启动生产服务器：
+
+   ```bash
+   npm start
    ```
 
 4. **访问应用**
@@ -38,9 +52,9 @@
 
 项目支持多种部署方式：
 
-- **Vercel**: 自动部署，支持 GitHub 集成
-- **Render**: 云平台部署，支持自动构建
-- **腾讯云**: 传统服务器部署
+- **传统服务器**: 使用 `npm start` 启动 Express 服务器
+- **云平台**: Render、Railway、Heroku 等支持 Node.js 的平台
+- **静态托管**: 如需静态托管，可将 `public` 目录部署到 GitHub Pages、Netlify 等
 
 ## 👨‍💻 开发指南
 
@@ -63,8 +77,15 @@
    使用 nodemon 实现开发环境热重载：
 
    ```bash
-   npm run live
+   npm run dev
    ```
+
+3. **服务器功能**
+
+   - **静态文件服务**: Express 提供静态文件服务，支持 `public` 目录和 `node_modules`
+   - **错误处理**: 自动处理 404 和 500 错误，提供友好的错误页面
+   - **环境变量**: 支持通过 `.env` 文件配置端口和环境
+   - **HTML 包含**: 由客户端的 `html-include.js` 脚本处理（使用同步 XHR 请求）
 
 ### 代码规范
 

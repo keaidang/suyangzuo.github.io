@@ -10,6 +10,8 @@
   --Web前端-垂直偏移: 0px;
   --数据结构与算法-水平偏移: 0px;
   --数据结构与算法-垂直偏移: 0px;
+  --Canvas-水平偏移: 0px;
+  --Canvas-垂直偏移: 0px;
 }
 
 body {
@@ -169,6 +171,11 @@ body {
   top: calc(var(--数据结构与算法-垂直偏移) - var(--四角线框间隙));
 }
 
+.Canvas交互列表 .四角线框 {
+  left: calc(var(--Canvas-水平偏移) - var(--四角线框间隙));
+  top: calc(var(--Canvas-垂直偏移) - var(--四角线框间隙));
+}
+
 .交互单项 {
   position: relative;
   height: 80px;
@@ -204,12 +211,12 @@ body {
   color: #345;
   font-weight: bolder;
   aspect-ratio: 1;
-  height: 50%;
+  height: 45%;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  font-family: "Google Sans Code", monospace;
-  font-size: 1rem;
+  font-family: "Google Sans Code", Consolas, monospace;
+  font-size: 14px;
   text-wrap: nowrap;
 }
 
@@ -225,6 +232,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  filter: drop-shadow(1px 1px 1px #000a);
 }
 
 .链接-字 {

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas 坐标系</title>
+    <link rel="icon" href="/Images/Interactive-Hub/HQ/Canvas坐标系.svg" type="image/x-icon" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&family=Red+Hat+Mono:ital,wght@0,300..700;1,300..700&family=Noto+Sans+Mono&family=Noto+Sans+SC:wght@400;500&family=JetBrains+Mono:ital@0;1&family=Ubuntu+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/Styles/common.css" />
+    <link rel="stylesheet" href="/Styles/top-banner-common.css" />
+    <link rel="stylesheet" href="../control.css" />
+    <link rel="stylesheet" href="../interactive-common.css" />
+    <link rel="stylesheet" href="./CanvasCoordinate.css" />
+    <script src="/Scripts/top-banner.js" defer></script>
+    <script src="https://cdn.lordicon.com/lordicon.js"></script>
+    <script src="https://kit.fontawesome.com/d0483e3bd3.js" crossorigin="anonymous"></script>
+    <script src="./CanvasCoordinate.js" defer></script>
+  </head>
+  <body>
+    <!-- --------------------------- ↓ 顶部横幅 -------------------------------- -->
+    <script src="../../Scripts/html-include.js" target="../../top-banner.html" position="afterbegin"></script>
+    <!-- --------------------------- ↑ 顶部横幅 -------------------------------- -->
+
+    <section class="Canvas坐标系总区 总区">
+      <script src="../../Scripts/html-include.js" target="../control.html" position="afterbegin"></script>
+      <p class="交互标题">Canvas 坐标系</p>
+      <div class="Canvas容器">
+        <canvas id="canvas"></canvas>
+        <div class="控制区">
+          <label class="开关" for="坐标系选择">
+            <input type="checkbox" id="坐标系选择" class="开关输入" checked />
+            <span class="开关滑块"></span>
+            <span class="开关文本" id="坐标系选择文本">世界坐标系</span>
+          </label>
+          <label class="开关" for="鼠标坐标参考线">
+            <input type="checkbox" id="鼠标坐标参考线" class="开关输入" checked />
+            <span class="开关滑块"></span>
+            <span class="开关文本">鼠标坐标参考线</span>
+          </label>
+          <label class="开关" for="鼠标坐标">
+            <input type="checkbox" id="鼠标坐标" class="开关输入" checked />
+            <span class="开关滑块"></span>
+            <span class="开关文本">鼠标坐标</span>
+          </label>
+          <label class="开关" for="鼠标坐标背景">
+            <input type="checkbox" id="鼠标坐标背景" class="开关输入" checked />
+            <span class="开关滑块"></span>
+            <span class="开关文本">鼠标坐标背景</span>
+          </label>
+          <label class="开关" for="观察点坐标">
+            <input type="checkbox" id="观察点坐标" class="开关输入" checked />
+            <span class="开关滑块"></span>
+            <span class="开关文本">观察点坐标</span>
+          </label>
+          <label class="开关" for="坐标转换过程">
+            <input type="checkbox" id="坐标转换过程" class="开关输入" />
+            <span class="开关滑块"></span>
+            <span class="开关文本">坐标转换过程</span>
+          </label>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
