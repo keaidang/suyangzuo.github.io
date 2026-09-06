@@ -1,0 +1,1478 @@
+// ==================== 工具函数 ====================
+function 创建补间(起始值, 结束值, 持续时间 = 250) {
+  return {
+    起始值,
+    结束值,
+    起始时间: performance.now(),
+    持续时间,
+    当前值: 起始值,
+    已完成: 起始值 === 结束值,
+    更新(当前时间) {
+      if (this.已完成) return this.当前值;
+      const 进度 = Math.min((当前时间 - this.起始时间) / this.持续时间, 1);
+      this.当前值 = this.起始值 + (this.结束值 - this.起始值) * 进度;
+      if (进度 >= 1) this.已完成 = true;
+      return this.当前值;
+    },
+    跳转至结束() {
+      this.当前值 = this.结束值;
+      this.已完成 = true;
+    },
+  };
+}
+
+function 颜色混合(颜色1, 颜色2, 比例) {
+  const rgb1 = 解析颜色(颜色1);
+  const rgb2 = 解析颜色(颜色2);
+  const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * 比例);
+  const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * 比例);
+  const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * 比例);
+  const a = rgb1.a + (rgb2.a - rgb1.a) * 比例;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function 解析颜色(颜色) {
+  if (颜色.startsWith("#")) {
+    let hex = 颜色.slice(1);
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const num = parseInt(hex, 16);
+    if (hex.length === 8) {
+      return {
+        r: (num >>> 24) & 255,
+        g: (num >>> 16) & 255,
+        b: (num >>> 8) & 255,
+        a: (num & 255) / 255,
+      };
+    }
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255, a: 1 };
+  }
+  const match = 颜色.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  if (match) {
+    return {
+      r: parseInt(match[1]),
+      g: parseInt(match[2]),
+      b: parseInt(match[3]),
+      a: match[4] !== undefined ? parseFloat(match[4]) : 1,
+    };
+  }
+  return { r: 255, g: 255, b: 255, a: 1 };
+}
+
+function 圆角矩形路径(上下文, x, y, 宽, 高, 半径) {
+  const r = Math.min(半径, 宽 / 2, 高 / 2);
+  上下文.beginPath();
+  上下文.moveTo(x + r, y);
+  上下文.lineTo(x + 宽 - r, y);
+  上下文.quadraticCurveTo(x + 宽, y, x + 宽, y + r);
+  上下文.lineTo(x + 宽, y + 高 - r);
+  上下文.quadraticCurveTo(x + 宽, y + 高, x + 宽 - r, y + 高);
+  上下文.lineTo(x + r, y + 高);
+  上下文.quadraticCurveTo(x, y + 高, x, y + 高 - r);
+  上下文.lineTo(x, y + r);
+  上下文.quadraticCurveTo(x, y, x + r, y);
+  上下文.closePath();
+}
+
+function 截断文本(上下文, 文本, 最大宽度) {
+  if (上下文.measureText(文本).width <= 最大宽度) return 文本;
+  let 结果 = 文本;
+  while (结果.length > 1 && 上下文.measureText(结果 + "…").width > 最大宽度) {
+    结果 = 结果.slice(0, -1);
+  }
+  return 结果 + "…";
+}
+
+// ==================== 统一配置对象 ====================
+const 配置 = {
+  动画时长: 250,
+  边距: { 上: 100, 下: 25, 左: 25, 右: 25 },
+  目录: {
+    高: 40,
+    圆角: 8,
+    填充色: "#FFD76610",
+    当前填充色: "#FFD76650",
+    描边色: "#FF8C00a0",
+    当前描边色: "#FF8C00",
+    描边宽度: 2,
+    当前描边宽度: 3,
+    当前放大倍数: 1.3,
+    名称颜色: "#fff",
+    名称字体: "12px 'Google Sans Code', Consolas, 'Noto Sans SC', 微软雅黑, sans-serif",
+    名称偏移: -8,
+    文本边距: 15,
+    非空标记: {
+      圆圈颜色: "rgba(255,255,255,0.5)",
+      圆圈半径: 3,
+      圆圈间距: 8,
+    },
+  },
+  根目录: {
+    高: 48,
+    圆角: 10,
+    填充色: "#2d5a3dff",
+    当前填充色: "#2d5a3d80",
+    描边色: "#4a9e6aff",
+    当前描边色: "#6ee7a0",
+    描边宽度: 3,
+    当前描边宽度: 4,
+    当前放大倍数: 1.3,
+    名称颜色: "#6ee7a0",
+    名称字体: "bold 15px 'Google Sans Code', Consolas, 'Noto Sans SC', 微软雅黑, sans-serif",
+    名称偏移: -10,
+    文本边距: 18,
+  },
+  文件: {
+    高: 34,
+    圆角: 5,
+    填充色: "#245181ff",
+    描边色: "#75a7e1ff",
+    描边宽度: 2,
+    名称颜色: "#fff",
+    名称字体: "13px 'Google Sans Code', Consolas, 'Noto Sans SC', 微软雅黑, sans-serif",
+    文本边距: 15,
+  },
+  连接线: {
+    颜色: "#555",
+    宽度: 1,
+    弯曲半径: 200,
+  },
+  画布: {
+    背景色: "#111111",
+    字体: "'JetBrains Mono', 'Noto Sans SC', monospace",
+  },
+  高亮: {
+    波纹颜色: "rgba(0, 200, 255, 0.6)",
+    波纹最大半径: 55,
+    波纹持续时间: 600,
+    波纹线宽: 2,
+  },
+  错误: {
+    背景色: "rgba(180, 30, 30, 0.92)",
+    文字颜色: "#fff",
+    字体: "14px 'Google Sans Code', Consolas, 'Noto Sans SC', 微软雅黑, sans-serif",
+    圆角: 8,
+    内边距: 12,
+    最大宽度: 420,
+    停留时间: 2200,
+    消失时间: 300,
+  },
+  交互: {
+    拖拽阈值: 5,
+    点击时间阈值: 300,
+  },
+};
+
+// 语义化别名
+配置.目录.当前目录填充色 = 配置.目录.当前填充色;
+配置.目录.当前目录描边色 = 配置.目录.当前描边色;
+配置.目录.当前目录描边宽度 = 配置.目录.当前描边宽度;
+
+// ==================== 节点 ID 计数器 ====================
+let 下一节点ID = 1;
+
+function 创建节点(类型, 名称, 父节点) {
+  return {
+    id: 下一节点ID++,
+    类型, // "目录" | "文件"
+    名称,
+    父节点,
+    子节点组: [],
+    x: 0,
+    y: 0,
+    宽: 0,
+    高: 0,
+    动画: null,
+    删除动画: null,
+    当前位置动画: null,
+    当前位置过渡: 0,
+    是当前位置: false,
+    被拖拽: false,
+    固定位置: false,
+    拖拽偏移X: 0,
+    拖拽偏移Y: 0,
+  };
+}
+
+// ==================== 全局状态 ====================
+const 画布 = document.getElementById("canvas");
+const 上下文 = 画布.getContext("2d");
+const 命令输入框 = document.getElementById("命令输入框");
+const 命令执行按钮 = document.getElementById("命令执行按钮");
+const 命令提示符 = document.getElementById("命令提示符");
+const 重置按钮 = document.querySelector(".重置按钮");
+
+let 根节点 = null;
+let 当前位置节点 = null;
+let 节点表 = new Map();
+let 错误提示组 = [];
+let 波纹组 = [];
+let 命令历史 = [];
+let 历史索引 = -1;
+let 临时输入 = "";
+let 画布宽 = 0;
+let 画布高 = 0;
+let 动画帧ID = null;
+let 拖拽节点 = null;
+let 拖拽起始X = 0;
+let 拖拽起始Y = 0;
+let 拖拽当前X = 0;
+let 拖拽当前Y = 0;
+let 鼠标按下时间 = 0;
+let 鼠标按下节点 = null;
+let 拖拽跟随偏移组 = [];
+let 悬停节点 = null;
+
+// ==================== 目录名称池 ====================
+const 目录名称池 = [
+  "文档", "图片", "音乐", "视频", "下载", "桌面", "项目", "代码",
+  "资料", "备份", "配置", "脚本", "日志", "模板", "测试", "工具",
+];
+
+const 文件名称池 = [
+  "报告.txt", "笔记.md", "数据.csv", "配置.conf", "脚本.sh",
+  "说明.txt", "代码.py", "样式.css", "页面.html", "清单.txt",
+  "备忘录.md", "记录.log", "索引.json", "readme.txt", "主程序.c",
+];
+
+// ==================== 节点尺寸测量 ====================
+function 测量节点尺寸(节点) {
+  const 是根目录 = !节点.父节点;
+  const 尺寸 = 是根目录 ? 配置.根目录 : 配置[节点.类型];
+  上下文.font = 尺寸.名称字体;
+  const 文本宽 = 上下文.measureText(节点.名称).width;
+  节点.宽 = Math.ceil(文本宽) + 尺寸.文本边距 * 2;
+  节点.高 = 尺寸.高;
+}
+
+function 测量所有节点(节点) {
+  测量节点尺寸(节点);
+  for (const 子节点 of 节点.子节点组) {
+    测量所有节点(子节点);
+  }
+}
+
+// ==================== 尺寸计算 ====================
+function 计算子树尺寸(节点) {
+  if (!节点.子节点组.length) {
+    return { 宽: 节点.宽, 高: 节点.高 };
+  }
+  let 总高 = 0;
+  let 最大宽 = 节点.宽;
+  for (const 子节点 of 节点.子节点组) {
+    const 子尺寸 = 计算子树尺寸(子节点);
+    总高 += 子尺寸.高;
+    最大宽 = Math.max(最大宽, 子尺寸.宽);
+  }
+  总高 += (节点.子节点组.length - 1) * 30;
+  return { 宽: 最大宽 + 100, 高: Math.max(节点.高, 总高) };
+}
+
+function 计算布局(节点, 左边界, 垂直范围) {
+  const 中心Y = (垂直范围.上 + 垂直范围.下) / 2;
+  const 布局 = { x: 左边界, y: 中心Y };
+  节点.布局 = 布局;
+  if (!节点.子节点组.length) return;
+
+  let 子树总高 = 0;
+  const 子树尺寸组 = [];
+  for (const 子节点 of 节点.子节点组) {
+    const 子尺寸 = 计算子树尺寸(子节点);
+    子树尺寸组.push(子尺寸);
+    子树总高 += 子尺寸.高;
+  }
+  子树总高 += (节点.子节点组.length - 1) * 30;
+
+  let 当前上边界 = 中心Y - 子树总高 / 2;
+  const 子左边界 = 左边界 + 节点.宽 + 100;
+
+  for (let i = 0; i < 节点.子节点组.length; i++) {
+    const 子节点 = 节点.子节点组[i];
+    const 子尺寸 = 子树尺寸组[i];
+    计算布局(子节点, 子左边界, { 上: 当前上边界, 下: 当前上边界 + 子尺寸.高 });
+    当前上边界 += 子尺寸.高 + 30;
+  }
+}
+
+function 布局并动画() {
+  if (!根节点) return;
+  测量所有节点(根节点);
+
+  const 可用高度 = 画布高 - 配置.边距.上 - 配置.边距.下;
+  const 可用宽度 = 画布宽 - 配置.边距.左 - 配置.边距.右;
+  计算布局(根节点, 配置.边距.左, {
+    上: 配置.边距.上,
+    下: 配置.边距.上 + 可用高度,
+  });
+
+  // 水平居中校正
+  const 树尺寸 = 计算子树尺寸(根节点);
+  const 偏移X = (可用宽度 - Math.min(树尺寸.宽, 可用宽度)) / 2;
+  const 所有节点 = 收集所有节点(根节点);
+  for (const 节点 of 所有节点) {
+    节点.布局.x += 偏移X;
+  }
+
+  // 为每个节点启动/更新位置动画
+  const 现在 = performance.now();
+  for (const 节点 of 所有节点) {
+    if (节点.删除动画) continue;
+    if (节点.被拖拽) continue; // 拖拽中的节点不自动布局
+    if (节点.固定位置) {
+      // 固定位置的节点：不自动布局，位置由用户拖拽决定
+      节点.动画 = null;
+      continue;
+    }
+    if (!节点.动画) {
+      // 新节点：从当前位置动画到布局位置
+      节点.动画 = {
+        起始值: { x: 节点.x, y: 节点.y },
+        结束值: { x: 节点.布局.x, y: 节点.布局.y },
+        起始时间: 现在,
+        持续时间: 配置.动画时长,
+        已完成: false,
+        更新(时间) {
+          if (this.已完成) return this.结束值;
+          const 进度 = Math.min((时间 - this.起始时间) / this.持续时间, 1);
+          const 当前 = {
+            x: this.起始值.x + (this.结束值.x - this.起始值.x) * 进度,
+            y: this.起始值.y + (this.结束值.y - this.起始值.y) * 进度,
+          };
+          if (进度 >= 1) this.已完成 = true;
+          return 当前;
+        },
+      };
+    } else {
+      // 已有动画：更新目标
+      节点.动画.结束值 = { x: 节点.布局.x, y: 节点.布局.y };
+      节点.动画.已完成 = false;
+      节点.动画.起始时间 = 现在;
+      节点.动画.起始值 = { x: 节点.x, y: 节点.y };
+    }
+  }
+
+  请求重绘();
+}
+
+function 收集所有节点(节点, 结果 = []) {
+  if (!节点) return 结果;
+  结果.push(节点);
+  for (const 子节点 of 节点.子节点组) {
+    收集所有节点(子节点, 结果);
+  }
+  return 结果;
+}
+
+// ==================== 绘制函数 ====================
+function 获取节点实际尺寸(节点) {
+  const 是根目录 = !节点.父节点;
+  const 尺寸 = 是根目录 ? 配置.根目录 : 配置[节点.类型];
+  const 当前比例 = 节点.删除动画 ? 1 - 节点.删除动画.当前值 : 1;
+  let 实际宽 = 节点.宽 * 当前比例;
+  let 实际高 = 节点.高 * 当前比例;
+  let 填充色 = 尺寸.填充色;
+  let 描边色 = 尺寸.描边色;
+  let 描边宽度 = 尺寸.描边宽度;
+
+  const 是当前位置 = 节点.是当前位置 && !节点.删除动画;
+  if (是当前位置 && 节点.类型 === "目录") {
+    const 放大 = 尺寸.当前放大倍数;
+    const 位置比例 = 节点.当前位置过渡;
+    实际宽 = 节点.宽 * (1 + (放大 - 1) * 位置比例) * 当前比例;
+    实际高 = 节点.高 * (1 + (放大 - 1) * 位置比例) * 当前比例;
+    填充色 = 颜色混合(尺寸.填充色, 尺寸.当前填充色, 位置比例);
+    描边色 = 颜色混合(尺寸.描边色, 尺寸.当前描边色, 位置比例);
+    描边宽度 = 尺寸.描边宽度 + (尺寸.当前描边宽度 - 尺寸.描边宽度) * 位置比例;
+  }
+
+  return { 实际宽, 实际高, 填充色, 描边色, 描边宽度, 当前比例, 尺寸 };
+}
+
+function 绘制连接线(父节点, 子节点) {
+  const 父尺寸 = 获取节点实际尺寸(父节点);
+  const 子尺寸 = 获取节点实际尺寸(子节点);
+
+  // 连线起点/终点在矩形描边的外缘居中处
+  const 父中心X = 父节点.x;
+  const 父中心Y = 父节点.y;
+  const 子中心X = 子节点.x;
+  const 子中心Y = 子节点.y;
+
+  const 父半宽 = 父尺寸.实际宽 / 2;
+  const 父半高 = 父尺寸.实际高 / 2;
+  const 子半宽 = 子尺寸.实际宽 / 2;
+  const 子半高 = 子尺寸.实际高 / 2;
+
+  const 水平距离 = Math.abs(子中心X - 父中心X) - 父半宽 - 子半宽;
+  const 垂直距离 = Math.abs(子中心Y - 父中心Y) - 父半高 - 子半高;
+
+  上下文.strokeStyle = 配置.连接线.颜色;
+  上下文.lineWidth = 配置.连接线.宽度;
+
+  // 判断连接方向：水平距离大则左右连接，否则上下连接
+  if (水平距离 > 垂直距离) {
+    // 左右连接：需要判断谁在左侧
+    const 父在左侧 = 父中心X < 子中心X;
+
+    // 起点=父矩形靠近子节点一侧的描边居中
+    // 终点=子矩形靠近父节点一侧的描边居中
+    const 起点X = 父在左侧
+      ? 父中心X + 父半宽 + 父尺寸.描边宽度 / 2  // 父在左侧，起点在右边
+      : 父中心X - 父半宽 - 父尺寸.描边宽度 / 2; // 父在右侧，起点在左边
+    const 起点Y = 父中心Y;
+    const 终点X = 父在左侧
+      ? 子中心X - 子半宽 - 子尺寸.描边宽度 / 2  // 子在右侧，终点在左边
+      : 子中心X + 子半宽 + 子尺寸.描边宽度 / 2; // 子在左侧，终点在右边
+    const 终点Y = 子中心Y;
+
+    // 三次贝塞尔曲线控制点
+    const 控制点1X = 起点X + (父在左侧 ? 水平距离 * 0.5 : -水平距离 * 0.5);
+    const 控制点1Y = 起点Y;
+    const 控制点2X = 终点X + (父在左侧 ? -水平距离 * 0.5 : 水平距离 * 0.5);
+    const 控制点2Y = 终点Y;
+
+    上下文.beginPath();
+    上下文.moveTo(起点X, 起点Y);
+    上下文.bezierCurveTo(控制点1X, 控制点1Y, 控制点2X, 控制点2Y, 终点X, 终点Y);
+    上下文.stroke();
+  } else {
+    // 上下连接：需要判断谁在上方
+    const 父在上方 = 父中心Y < 子中心Y;
+
+    // 起点=父矩形靠近子节点一侧的描边居中
+    // 终点=子矩形靠近父节点一侧的描边居中
+    const 起点X = 父中心X;
+    const 起点Y = 父在上方
+      ? 父中心Y + 父半高 + 父尺寸.描边宽度 / 2  // 父在下边
+      : 父中心Y - 父半高 - 父尺寸.描边宽度 / 2; // 父在上边
+    const 终点X = 子中心X;
+    const 终点Y = 父在上方
+      ? 子中心Y - 子半高 - 子尺寸.描边宽度 / 2  // 子在上边
+      : 子中心Y + 子半高 + 子尺寸.描边宽度 / 2; // 子在下边
+
+    // 三次贝塞尔曲线控制点
+    const 控制点1X = 起点X;
+    const 控制点1Y = 起点Y + (父在上方 ? 垂直距离 * 0.5 : -垂直距离 * 0.5);
+    const 控制点2X = 终点X;
+    const 控制点2Y = 终点Y + (父在上方 ? -垂直距离 * 0.5 : 垂直距离 * 0.5);
+
+    上下文.beginPath();
+    上下文.moveTo(起点X, 起点Y);
+    上下文.bezierCurveTo(控制点1X, 控制点1Y, 控制点2X, 控制点2Y, 终点X, 终点Y);
+    上下文.stroke();
+  }
+}
+
+function 绘制节点(节点) {
+  const { 实际宽, 实际高, 填充色, 描边色, 描边宽度, 当前比例, 尺寸 } = 获取节点实际尺寸(节点);
+  if (当前比例 <= 0) return;
+
+  const 实际X = 节点.x - 实际宽 / 2;
+  const 实际Y = 节点.y - 实际高 / 2;
+  const 实际圆角 = 尺寸.圆角 * 当前比例;
+
+  // 悬停高亮：加粗描边
+  const 是悬停 = 节点 === 悬停节点 && !节点.删除动画;
+  const 最终描边宽度 = 是悬停 ? 描边宽度 + 1.5 : 描边宽度;
+
+  // 填充
+  上下文.fillStyle = 填充色;
+  圆角矩形路径(上下文, 实际X, 实际Y, 实际宽, 实际高, 实际圆角);
+  上下文.fill();
+
+  // 描边
+  上下文.strokeStyle = 描边色;
+  上下文.lineWidth = 最终描边宽度;
+  上下文.stroke();
+
+  // 根目录非空标记：3个小圆圈（绿色调）
+  if (!节点.父节点 && 节点.子节点组.length > 0 && !节点.删除动画) {
+    const 标记 = 配置.根目录.非空标记 || { 圆圈颜色: "rgba(110,231,160,0.6)", 圆圈半径: 3, 圆圈间距: 8 };
+    const 圆圈总数 = 3;
+    const 总宽 = (圆圈总数 - 1) * 标记.圆圈间距;
+    const 起始X = 节点.x - 总宽 / 2;
+    上下文.fillStyle = 标记.圆圈颜色;
+    for (let i = 0; i < 圆圈总数; i++) {
+      上下文.beginPath();
+      上下文.arc(起始X + i * 标记.圆圈间距, 节点.y, 标记.圆圈半径, 0, Math.PI * 2);
+      上下文.fill();
+    }
+  }
+
+  // 普通目录非空标记：3个小圆圈
+  if (节点.类型 === "目录" && 节点.父节点 && 节点.子节点组.length > 0 && !节点.删除动画) {
+    const 标记 = 配置.目录.非空标记;
+    const 圆圈总数 = 3;
+    const 总宽 = (圆圈总数 - 1) * 标记.圆圈间距;
+    const 起始X = 节点.x - 总宽 / 2;
+    上下文.fillStyle = 标记.圆圈颜色;
+    for (let i = 0; i < 圆圈总数; i++) {
+      上下文.beginPath();
+      上下文.arc(起始X + i * 标记.圆圈间距, 节点.y, 标记.圆圈半径, 0, Math.PI * 2);
+      上下文.fill();
+    }
+  }
+
+  // 名称
+  上下文.fillStyle = 尺寸.名称颜色;
+  上下文.font = 尺寸.名称字体;
+  上下文.textAlign = "center";
+  const 显示名称 = 截断文本(上下文, 节点.名称, 实际宽 - 8);
+
+  if (节点.类型 === "文件") {
+    // 文件名称放矩形正中
+    上下文.textBaseline = "middle";
+    上下文.fillText(显示名称, 节点.x, 节点.y);
+  } else {
+    // 目录名称放矩形上方
+    上下文.textBaseline = "bottom";
+    上下文.fillText(显示名称, 节点.x, 实际Y + 尺寸.名称偏移);
+  }
+}
+
+function 绘制错误提示() {
+  if (!错误提示组.length) return;
+  const 提示 = 错误提示组[0];
+  const 配置错误 = 配置.错误;
+
+  const 行高 = 22;
+  const 行组 = 提示.消息.split("\n");
+  const 行数 = 行组.length;
+
+  // 计算最宽一行的文本宽度，框宽 = 文本宽 + 左右各 20 + 内边距
+  上下文.font = 配置错误.字体;
+  let 最大文本宽 = 0;
+  for (const 行 of 行组) {
+    const 行宽 = 上下文.measureText(行).width;
+    if (行宽 > 最大文本宽) 最大文本宽 = 行宽;
+  }
+  const 框宽 = Math.min(最大文本宽 + 40 + 配置错误.内边距 * 2, 配置错误.最大宽度);
+  const 框高 = 行数 * 行高 + 配置错误.内边距 * 2;
+
+  // 计算透明度
+  let 透明度 = 1;
+  const 现在 = performance.now();
+  if (提示.阶段 === "消失") {
+    透明度 = 1 - (现在 - 提示.消失开始时间) / 配置错误.消失时间;
+  }
+
+  const 中心X = 画布宽 / 2;
+  const 中心Y = 画布高 / 2 - 20;
+
+  上下文.save();
+  上下文.globalAlpha = Math.max(0, Math.min(1, 透明度));
+
+  // 阴影
+  上下文.shadowColor = "rgba(0,0,0,0.5)";
+  上下文.shadowBlur = 20;
+  上下文.shadowOffsetY = 4;
+
+  // 背景
+  上下文.fillStyle = 配置错误.背景色;
+  圆角矩形路径(上下文, 中心X - 框宽 / 2, 中心Y - 框高 / 2, 框宽, 框高, 配置错误.圆角);
+  上下文.fill();
+
+  上下文.restore();
+
+  // 文字
+  上下文.fillStyle = 配置错误.文字颜色;
+  上下文.font = 配置错误.字体;
+  上下文.textAlign = "center";
+  上下文.textBaseline = "middle";
+  const 起始Y = 中心Y - ((行数 - 1) * 行高) / 2;
+  上下文.globalAlpha = Math.max(0, Math.min(1, 透明度));
+  for (let i = 0; i < 行组.length; i++) {
+    上下文.fillText(行组[i], 中心X, 起始Y + i * 行高);
+  }
+  上下文.globalAlpha = 1;
+}
+
+function 绘制波纹() {
+  if (!波纹组.length) return;
+  const 现在 = performance.now();
+  for (const 波纹 of 波纹组) {
+    const 进度 = (现在 - 波纹.起始时间) / 配置.高亮.波纹持续时间;
+    if (进度 > 1) continue;
+    const 半径 = 波纹.最大半径 * 进度;
+    const 透明度 = (1 - 进度) * 0.8;
+    上下文.strokeStyle = 配置.高亮.波纹颜色;
+    上下文.lineWidth = 配置.高亮.波纹线宽;
+    上下文.globalAlpha = 透明度;
+    上下文.beginPath();
+    上下文.arc(波纹.x, 波纹.y, 半径, 0, Math.PI * 2);
+    上下文.stroke();
+    上下文.globalAlpha = 1;
+  }
+}
+
+// ==================== 主渲染循环 ====================
+function 渲染循环(当前时间) {
+  动画帧ID = null;
+
+  // 更新错误提示
+  let 有重绘需求 = false;
+  if (错误提示组.length) {
+    const 提示 = 错误提示组[0];
+    if (提示.阶段 === "显示" && 当前时间 - 提示.开始时间 > 配置.错误.停留时间) {
+      提示.阶段 = "消失";
+      提示.消失开始时间 = 当前时间;
+    }
+    if (提示.阶段 === "消失" && 当前时间 - 提示.消失开始时间 > 配置.错误.消失时间) {
+      错误提示组.shift();
+    }
+    有重绘需求 = true;
+  }
+
+  // 清理已完成的波纹
+  if (波纹组.length) {
+    const 原长度 = 波纹组.length;
+    波纹组 = 波纹组.filter((波纹) => 当前时间 - 波纹.起始时间 < 配置.高亮.波纹持续时间);
+    if (波纹组.length > 0 || 原长度 !== 波纹组.length) 有重绘需求 = true;
+  }
+
+  // 清除画布
+  上下文.fillStyle = 配置.画布.背景色;
+  上下文.fillRect(0, 0, 画布宽, 画布高);
+
+  if (根节点) {
+    // 先更新所有节点动画
+    const 所有节点 = 收集所有节点(根节点);
+    let 有动画进行中 = false;
+
+    for (const 节点 of 所有节点) {
+      if (节点.删除动画) {
+        节点.删除动画.更新(当前时间);
+        if (!节点.删除动画.已完成) 有动画进行中 = true;
+      } else if (节点.动画) {
+        const 结果 = 节点.动画.更新(当前时间);
+        节点.x = 结果.x;
+        节点.y = 结果.y;
+        if (!节点.动画.已完成) 有动画进行中 = true;
+      }
+    }
+
+    // 检查当前位置过渡动画
+    for (const 节点 of 所有节点) {
+      if (节点.当前位置动画) {
+        节点.当前位置过渡 = 节点.当前位置动画.更新(当前时间);
+        if (!节点.当前位置动画.已完成) 有动画进行中 = true;
+        else 节点.当前位置动画 = null;
+      }
+    }
+
+    // 分离正常节点和删除中的节点
+    const 正常节点 = 所有节点.filter((n) => !n.删除动画 || n.删除动画.当前值 < 1);
+    const 删除节点 = 所有节点.filter((n) => n.删除动画);
+
+    // 绘制连接线（只绘制两个端点都未在删除中的）
+    for (const 节点 of 正常节点) {
+      if (!节点.父节点) continue;
+      if (节点.父节点.删除动画) continue;
+      绘制连接线(节点.父节点, 节点);
+    }
+
+    // 绘制节点（删除中的最后画，叠在上层）
+    for (const 节点 of 正常节点) {
+      if (!删除节点.includes(节点)) {
+        绘制节点(节点);
+      }
+    }
+    for (const 节点 of 删除节点) {
+      绘制节点(节点);
+    }
+
+    // 清理已完成删除动画的节点
+    let 有节点被移除 = false;
+    for (const 节点 of [...删除节点]) {
+      if (节点.删除动画.已完成) {
+        // 从父节点中移除
+        if (节点.父节点) {
+          const 索引 = 节点.父节点.子节点组.indexOf(节点);
+          if (索引 > -1) 节点.父节点.子节点组.splice(索引, 1);
+        }
+        节点表.delete(节点.id);
+        有节点被移除 = true;
+      }
+    }
+
+    if (有动画进行中 || 有节点被移除) 有重绘需求 = true;
+  }
+
+  绘制波纹();
+  绘制错误提示();
+
+  if (有重绘需求) {
+    动画帧ID = requestAnimationFrame(渲染循环);
+  }
+}
+
+function 请求重绘() {
+  if (!动画帧ID) {
+    动画帧ID = requestAnimationFrame(渲染循环);
+  }
+}
+
+function 更新节点位置(节点, 时间) {
+  if (节点.删除动画) {
+    节点.删除动画.更新(时间);
+    return !节点.删除动画.已完成;
+  }
+  if (节点.动画) {
+    const 结果 = 节点.动画.更新(时间);
+    节点.x = 结果.x;
+    节点.y = 结果.y;
+    return !节点.动画.已完成;
+  }
+  return false;
+}
+
+function 更新当前位置过渡(节点, 时间) {
+  if (节点.当前位置动画) {
+    节点.当前位置过渡 = 节点.当前位置动画.更新(时间);
+    if (节点.当前位置动画.已完成) 节点.当前位置动画 = null;
+    return true;
+  }
+  return false;
+}
+
+// ==================== 鼠标交互 ====================
+function 获取鼠标坐标(事件) {
+  const 矩形 = 画布.getBoundingClientRect();
+  return {
+    x: 事件.clientX - 矩形.left,
+    y: 事件.clientY - 矩形.top,
+  };
+}
+
+function 查找命中节点(x, y) {
+  if (!根节点) return null;
+  const 所有节点 = 收集所有节点(根节点);
+  // 从上到下（后画的先命中）
+  for (let i = 所有节点.length - 1; i >= 0; i--) {
+    const 节点 = 所有节点[i];
+    if (节点.删除动画) continue;
+    const { 实际宽, 实际高 } = 获取节点实际尺寸(节点);
+    const 半宽 = 实际宽 / 2;
+    const 半高 = 实际高 / 2;
+    if (x >= 节点.x - 半宽 && x <= 节点.x + 半宽 && y >= 节点.y - 半高 && y <= 节点.y + 半高) {
+      return 节点;
+    }
+  }
+  return null;
+}
+
+function 处理鼠标按下(事件) {
+  const { x, y } = 获取鼠标坐标(事件);
+  const 命中节点 = 查找命中节点(x, y);
+  鼠标按下时间 = performance.now();
+  鼠标按下节点 = 命中节点;
+
+  if (命中节点) {
+    拖拽节点 = 命中节点;
+    拖拽起始X = x;
+    拖拽起始Y = y;
+    拖拽当前X = x;
+    拖拽当前Y = y;
+    命中节点.拖拽偏移X = x - 命中节点.x;
+    命中节点.拖拽偏移Y = y - 命中节点.y;
+  }
+}
+
+function 处理鼠标移动(事件) {
+  const { x, y } = 获取鼠标坐标(事件);
+
+  // 未拖拽时：检测悬停节点
+  if (!拖拽节点) {
+    const 命中 = 查找命中节点(x, y);
+    if (命中 !== 悬停节点) {
+      悬停节点 = 命中;
+      画布.style.cursor = 命中 ? "pointer" : "var(--光标-默认)";
+      请求重绘();
+    }
+    return;
+  }
+
+  拖拽当前X = x;
+  拖拽当前Y = y;
+
+  if (!拖拽节点.被拖拽) {
+    const 移动距离 = Math.sqrt((x - 拖拽起始X) ** 2 + (y - 拖拽起始Y) ** 2);
+    if (移动距离 <= 配置.交互.拖拽阈值) return;
+    // 开始拖拽
+    拖拽节点.被拖拽 = true;
+    拖拽节点.动画 = null;
+    // 记录所有后代节点相对拖拽节点的偏移，用于跟随移动
+    拖拽跟随偏移组 = [];
+    const 收集后代偏移 = (节点, 偏移X, 偏移Y) => {
+      for (const 子节点 of 节点.子节点组) {
+        const 相对偏移X = 子节点.x - 拖拽节点.x;
+        const 相对偏移Y = 子节点.y - 拖拽节点.y;
+        拖拽跟随偏移组.push({ 节点: 子节点, 偏移X: 相对偏移X, 偏移Y: 相对偏移Y });
+        子节点.动画 = null; // 停止子节点自身动画，避免冲突
+        收集后代偏移(子节点, 相对偏移X, 相对偏移Y);
+      }
+    };
+    收集后代偏移(拖拽节点, 0, 0);
+  }
+
+  // 拖拽中：持续更新拖拽节点位置
+  const 新X = x - 拖拽节点.拖拽偏移X;
+  const 新Y = y - 拖拽节点.拖拽偏移Y;
+  const 移动差X = 新X - 拖拽节点.x;
+  const 移动差Y = 新Y - 拖拽节点.y;
+  拖拽节点.x = 新X;
+  拖拽节点.y = 新Y;
+
+  // 所有后代节点跟随移动，保持相对位置
+  for (const 跟随项 of 拖拽跟随偏移组) {
+    跟随项.节点.x += 移动差X;
+    跟随项.节点.y += 移动差Y;
+  }
+
+  请求重绘();
+}
+
+function 处理鼠标松开(事件) {
+  if (!拖拽节点) return;
+
+  const 按下时长 = performance.now() - 鼠标按下时间;
+  const 是点击 = !拖拽节点.被拖拽 && 按下时长 < 配置.交互.点击时间阈值;
+
+  if (是点击 && 鼠标按下节点 && 鼠标按下节点.类型 === "目录") {
+    // 点击目录：设为当前目录
+    执行cd(鼠标按下节点);
+  }
+
+  if (拖拽节点.被拖拽) {
+    // 拖拽结束：标记为固定位置，不再自动布局
+    拖拽节点.被拖拽 = false;
+    拖拽节点.固定位置 = true;
+    拖拽节点.动画 = null;
+    // 后代节点也标记为固定位置
+    for (const 跟随项 of 拖拽跟随偏移组) {
+      跟随项.节点.固定位置 = true;
+      跟随项.节点.动画 = null;
+    }
+    拖拽跟随偏移组 = [];
+    布局并动画();
+  }
+
+  拖拽节点 = null;
+  鼠标按下节点 = null;
+}
+
+// ==================== 命令系统 ====================
+function 规范化路径(路径) {
+  if (!路径 || 路径 === "/") return "/";
+  const 部分组 = 路径.split("/").filter((p) => p !== "" && p !== ".");
+  const 结果 = [];
+  for (const 部分 of 部分组) {
+    if (部分 === "..") {
+      if (结果.length) 结果.pop();
+    } else {
+      结果.push(部分);
+    }
+  }
+  return "/" + 结果.join("/");
+}
+
+function 解析路径(路径) {
+  const 规范化 = 规范化路径(路径);
+  if (规范化 === "/") return 根节点;
+  const 部分组 = 规范化.split("/").filter(Boolean);
+  let 节点 = 根节点;
+  for (const 部分 of 部分组) {
+    if (!节点) return null;
+    const 子节点 = 节点.子节点组.find((n) => n.名称 === 部分);
+    if (!子节点) return null;
+    节点 = 子节点;
+  }
+  return 节点;
+}
+
+function 获取当前路径() {
+  if (!当前位置节点 || 当前位置节点 === 根节点) return "/";
+  const 部分组 = [];
+  let 节点 = 当前位置节点;
+  while (节点 && 节点 !== 根节点) {
+    部分组.unshift(节点.名称);
+    节点 = 节点.父节点;
+  }
+  return "/" + 部分组.join("/");
+}
+
+const 路径显示区 = document.getElementById("路径显示区");
+
+function 更新路径显示() {
+  const 路径 = 获取当前路径();
+  // 将斜杠包成灰色 span
+  const 高亮路径 = 路径.replace(/\//g, '<span class="路径斜杠">/</span>');
+  路径显示区.innerHTML = 高亮路径;
+}
+
+function 更新提示符() {
+  命令提示符.textContent = 获取当前路径() + " $";
+  更新路径显示();
+}
+
+// ==================== 命令语法高亮 ====================
+const 命令高亮层 = document.getElementById("命令高亮层");
+
+function 更新命令高亮() {
+  const 文本 = 命令输入框.value;
+  if (!文本) {
+    命令高亮层.innerHTML = "";
+    return;
+  }
+
+  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch"];
+  const 转义 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const 部分组 = 文本.split(/(\s+)/);
+  let 结果 = "";
+  let 已遇到命令 = false;
+
+  for (const 部分 of 部分组) {
+    if (!部分) continue;
+    if (/^\s+$/.test(部分)) {
+      结果 += 转义(部分);
+      continue;
+    }
+    if (!已遇到命令) {
+      // 第一个非空白部分是命令
+      const 小写 = 部分.toLowerCase();
+      if (有效命令组.includes(小写)) {
+        结果 += `<span class="语法-命令">${转义(部分)}</span>`;
+        已遇到命令 = true;
+      } else {
+        结果 += 转义(部分);
+        已遇到命令 = true;
+      }
+      continue;
+    }
+    // 后续部分：参数或路径
+    if (部分.startsWith("-")) {
+      // 横杠参数，拆出横杠和参数字母
+      const 横杠 = 部分[0];
+      const 字母 = 部分.slice(1);
+      结果 += `<span class="语法-横杠">${转义(横杠)}</span>`;
+      if (字母) {
+        结果 += `<span class="语法-参数">${转义(字母)}</span>`;
+      }
+    } else {
+      结果 += `<span class="语法-路径">${转义(部分)}</span>`;
+    }
+  }
+
+  命令高亮层.innerHTML = 结果;
+}
+
+function 解析相对路径(路径) {
+  if (!路径 || 路径 === "/") return 根节点;
+  if (路径.startsWith("/")) {
+    // 绝对路径：从根开始
+    return 解析路径(路径);
+  }
+  // 相对路径：从当前位置开始
+  const 部分组 = 路径.split("/").filter((p) => p !== "" && p !== ".");
+  let 节点 = 当前位置节点;
+  for (const 部分 of 部分组) {
+    if (部分 === "..") {
+      if (节点.父节点) 节点 = 节点.父节点;
+    } else {
+      const 子节点 = 节点.子节点组.find((n) => n.名称 === 部分);
+      if (!子节点) return null;
+      节点 = 子节点;
+    }
+  }
+  return 节点;
+}
+
+function 解析命令(输入) {
+  const 错误 = { 有错误: false, 消息: "" };
+
+  if (!输入.trim()) {
+    return { 有效: false };
+  }
+
+  const 部分组 = 输入.trim().split(/\s+/);
+  const 命令 = 部分组[0].toLowerCase();
+  const 参数组 = 部分组.slice(1);
+
+  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch"];
+  if (!有效命令组.includes(命令)) {
+    return { 有效: false, 错误: { 有错误: true, 消息: `未知命令：${命令}\n支持：cd / mkdir / rmdir / rm / touch` } };
+  }
+
+  switch (命令) {
+    case "cd": {
+      if (参数组.length === 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "cd：缺少目标路径\n用法：cd <路径>" } };
+      }
+      if (参数组.length > 1) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "cd：参数过多\n用法：cd <路径>" } };
+      }
+      const 目标 = 参数组[0];
+      if (目标.startsWith("-")) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "cd：不支持该参数\n支持：cd / cd .. / cd <路径>" } };
+      }
+      // 使用相对路径解析，支持 .. 和子目录名
+      const 目标节点 = 解析相对路径(目标);
+      if (!目标节点) {
+        return { 有效: false, 错误: { 有错误: true, 消息: `cd：路径不存在：${目标}` } };
+      }
+      if (目标节点.类型 !== "目录") {
+        return { 有效: false, 错误: { 有错误: true, 消息: `cd：${目标} 不是目录\n无法进入文件` } };
+      }
+      return { 有效: true, 命令: "cd", 目标: 目标节点, 目标路径: 目标 };
+    }
+
+    case "mkdir": {
+      if (参数组.length === 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "mkdir：缺少目录名\n用法：mkdir <目录名>" } };
+      }
+      if (参数组.length > 1) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "mkdir：参数过多\n用法：mkdir <目录名>" } };
+      }
+      const 名称 = 参数组[0];
+      if (名称.startsWith("-")) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "mkdir：不支持该参数\n用法：mkdir <目录名>" } };
+      }
+      if (名称.includes("/")) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "mkdir：目录名不能包含 /" } };
+      }
+      const 重复 = 当前位置节点.子节点组.find((n) => n.名称 === 名称);
+      if (重复) {
+        return { 有效: false, 错误: { 有错误: true, 消息: `mkdir：已存在同名项：${名称}` } };
+      }
+      return { 有效: true, 命令: "mkdir", 名称 };
+    }
+
+    case "rmdir": {
+      if (参数组.length === 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rmdir：缺少目录名\n用法：rmdir <目录名>" } };
+      }
+      if (参数组.length > 1) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rmdir：参数过多\n用法：rmdir <目录名>" } };
+      }
+      const 名称 = 参数组[0];
+      if (名称.includes("/") && 名称 !== "/") {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rmdir：请使用目录名而非路径\n用法：rmdir <目录名>" } };
+      }
+      const 目标节点 = 当前位置节点.子节点组.find((n) => n.名称 === 名称);
+      if (!目标节点) {
+        return { 有效: false, 错误: { 有错误: true, 消息: `rmdir：目录不存在：${名称}` } };
+      }
+      if (目标节点.类型 !== "目录") {
+        return { 有效: false, 错误: { 有错误: true, 消息: `rmdir：${名称} 不是目录\n请使用 rm 删除文件` } };
+      }
+      if (目标节点.子节点组.length > 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: `rmdir：目录非空：${名称}\n请先删除目录内的所有内容` } };
+      }
+      return { 有效: true, 命令: "rmdir", 目标: 目标节点, 名称 };
+    }
+
+    case "rm": {
+      let 强制 = false;
+      let 递归 = false;
+      let 名称组 = [];
+
+      for (const 参数 of 参数组) {
+        if (参数.startsWith("-")) {
+          const 标志组 = 参数.slice(1).split("");
+          for (const 标志 of 标志组) {
+            if (标志 === "f") 强制 = true;
+            else if (标志 === "r" || 标志 === "R") 递归 = true;
+            else return { 有效: false, 错误: { 有错误: true, 消息: `rm：无效参数 -${标志}\n支持：-f（强制）-r（递归）` } };
+          }
+        } else {
+          名称组.push(参数);
+        }
+      }
+
+      if (名称组.length === 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rm：缺少文件名\n用法：rm [-f] [-r] <文件名>" } };
+      }
+      if (名称组.length > 1) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rm：一次只能删除一个文件\n用法：rm [-f] [-r] <文件名>" } };
+      }
+      if (名称组[0].includes("/") && 名称组[0] !== "/") {
+        return { 有效: false, 错误: { 有错误: true, 消息: "rm：请使用文件名而非路径\n用法：rm [-f] [-r] <文件名>" } };
+      }
+
+      const 名称 = 名称组[0];
+      const 目标节点 = 当前位置节点.子节点组.find((n) => n.名称 === 名称);
+      if (!目标节点) {
+        if (强制) {
+          return { 有效: false, 静默忽略: true };
+        }
+        return { 有效: false, 错误: { 有错误: true, 消息: `rm：文件不存在：${名称}` } };
+      }
+      if (目标节点.类型 === "目录") {
+        if (!递归) {
+          return { 有效: false, 错误: { 有错误: true, 消息: `rm：${名称} 是目录\n请使用 rm -r 或 rmdir 删除目录` } };
+        }
+        return { 有效: true, 命令: "rm", 目标: 目标节点, 名称, 递归: true, 强制 };
+      }
+      return { 有效: true, 命令: "rm", 目标: 目标节点, 名称, 递归: false, 强制 };
+    }
+
+    case "touch": {
+      if (参数组.length === 0) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "touch：缺少文件名\n用法：touch <文件名>" } };
+      }
+      if (参数组.length > 1) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "touch：参数过多\n用法：touch <文件名>" } };
+      }
+      const 名称 = 参数组[0];
+      if (名称.startsWith("-")) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "touch：不支持该参数\n用法：touch <文件名>" } };
+      }
+      if (名称.includes("/")) {
+        return { 有效: false, 错误: { 有错误: true, 消息: "touch：文件名不能包含 /" } };
+      }
+      const 重复 = 当前位置节点.子节点组.find((n) => n.名称 === 名称);
+      if (重复) {
+        return { 有效: false, 静默忽略: true, 消息: `touch：${名称} 已存在（已更新）` };
+      }
+      return { 有效: true, 命令: "touch", 名称 };
+    }
+  }
+}
+
+function 执行命令() {
+  const 输入 = 命令输入框.value;
+  if (!输入.trim()) return;
+
+  // 清除之前的错误提示
+  错误提示组 = [];
+
+  // 加入历史
+  命令历史.push(输入);
+  if (命令历史.length > 10) 命令历史.shift();
+  历史索引 = -1;
+  临时输入 = "";
+
+  const 解析 = 解析命令(输入);
+  命令输入框.value = "";
+  更新命令高亮(); // 同步清空高亮层
+
+  if (!解析.有效) {
+    if (解析.静默忽略) {
+      更新提示符();
+      return;
+    }
+    if (解析.错误) {
+      显示错误(解析.错误.消息);
+    }
+    return;
+  }
+
+  switch (解析.命令) {
+    case "cd":
+      执行cd(解析.目标);
+      break;
+    case "mkdir":
+      执行mkdir(解析.名称);
+      break;
+    case "rmdir":
+      执行rmdir(解析.目标);
+      break;
+    case "rm":
+      执行rm(解析.目标, 解析.递归);
+      break;
+    case "touch":
+      执行touch(解析.名称);
+      break;
+  }
+
+  更新提示符();
+}
+
+function 执行cd(目标节点) {
+  if (当前位置节点 === 目标节点) return;
+
+  // 移除旧高亮
+  if (当前位置节点) {
+    const 旧节点 = 当前位置节点;
+    旧节点.当前位置动画 = 创建补间(旧节点.当前位置过渡, 0, 配置.动画时长);
+    旧节点.是当前位置 = false;
+  }
+
+  // 设置新高亮
+  当前位置节点 = 目标节点;
+  目标节点.是当前位置 = true;
+  目标节点.当前位置过渡 = 0;
+  目标节点.当前位置动画 = 创建补间(0, 1, 配置.动画时长);
+
+  // 添加波纹效果
+  波纹组.push({
+    x: 目标节点.x,
+    y: 目标节点.y,
+    起始时间: performance.now(),
+    最大半径: 配置.高亮.波纹最大半径,
+  });
+
+  布局并动画();
+  更新提示符();
+}
+
+function 执行mkdir(名称) {
+  const 新节点 = 创建节点("目录", 名称, 当前位置节点);
+  新节点.x = 当前位置节点.x;
+  新节点.y = 当前位置节点.y;
+  当前位置节点.子节点组.push(新节点);
+  节点表.set(新节点.id, 新节点);
+  布局并动画();
+}
+
+function 执行rmdir(目标节点) {
+  目标节点.删除动画 = 创建补间(0, 1, 配置.动画时长);
+  // 延迟后真正从树中移除
+  setTimeout(() => {
+    if (目标节点.父节点) {
+      const 索引 = 目标节点.父节点.子节点组.indexOf(目标节点);
+      if (索引 > -1) 目标节点.父节点.子节点组.splice(索引, 1);
+    }
+    节点表.delete(目标节点.id);
+    布局并动画();
+    更新提示符();
+  }, 配置.动画时长);
+  布局并动画();
+}
+
+function 执行rm(目标节点, 递归) {
+  const 待删除 = [];
+  function 收集删除节点(节点) {
+    待删除.push(节点);
+    for (const 子节点 of 节点.子节点组) {
+      收集删除节点(子节点);
+    }
+  }
+  收集删除节点(目标节点);
+
+  for (const 节点 of 待删除) {
+    节点.删除动画 = 创建补间(0, 1, 配置.动画时长);
+  }
+
+  setTimeout(() => {
+    for (const 节点 of 待删除) {
+      if (节点.父节点) {
+        const 索引 = 节点.父节点.子节点组.indexOf(节点);
+        if (索引 > -1) 节点.父节点.子节点组.splice(索引, 1);
+      }
+      节点表.delete(节点.id);
+    }
+    布局并动画();
+    更新提示符();
+  }, 配置.动画时长);
+  布局并动画();
+}
+
+function 执行touch(名称) {
+  const 新节点 = 创建节点("文件", 名称, 当前位置节点);
+  新节点.x = 当前位置节点.x;
+  新节点.y = 当前位置节点.y;
+  当前位置节点.子节点组.push(新节点);
+  节点表.set(新节点.id, 新节点);
+  布局并动画();
+}
+
+function 显示错误(消息) {
+  错误提示组.push({
+    消息,
+    阶段: "显示",
+    开始时间: performance.now(),
+  });
+  请求重绘();
+}
+
+// ==================== 历史记录 ====================
+function 处理键盘事件(事件) {
+  if (事件.key === "Enter") {
+    执行命令();
+    return;
+  }
+
+  if (事件.key === "ArrowUp") {
+    事件.preventDefault();
+    if (命令历史.length === 0) return;
+    if (历史索引 === -1) {
+      临时输入 = 命令输入框.value;
+      历史索引 = 命令历史.length - 1;
+    } else if (历史索引 > 0) {
+      历史索引--;
+    }
+    命令输入框.value = 命令历史[历史索引];
+    更新命令高亮();
+    return;
+  }
+
+  if (事件.key === "ArrowDown") {
+    事件.preventDefault();
+    if (历史索引 === -1) return;
+    if (历史索引 < 命令历史.length - 1) {
+      历史索引++;
+      命令输入框.value = 命令历史[历史索引];
+    } else {
+      历史索引 = -1;
+      命令输入框.value = 临时输入;
+    }
+    更新命令高亮();
+    return;
+  }
+}
+
+// ==================== 初始化 ====================
+function 随机初始化() {
+  根节点 = 创建节点("目录", "/", null);
+  节点表.clear();
+  节点表.set(根节点.id, 根节点);
+
+  const 已用名称 = new Set();
+  const 所有目录组 = [根节点];
+
+  // 先随机决定总层数：1-5（1 层 = 只有根目录）
+  const 最大层数 = 1 + Math.floor(Math.random() * 5); // 1~5
+
+  if (最大层数 >= 2) {
+    const 根子节点数 = 2 + Math.floor(Math.random() * 2); // 2-3
+    for (let i = 0; i < 根子节点数; i++) {
+      const 名称 = 取随机名称(目录名称池, 已用名称);
+      const 子目录 = 创建节点("目录", 名称, 根节点);
+      根节点.子节点组.push(子目录);
+      节点表.set(子目录.id, 子目录);
+      所有目录组.push(子目录);
+    }
+
+    // 逐层向下扩展
+    let 当前层节点组 = [...根节点.子节点组];
+    for (let 层 = 3; 层 <= 最大层数; 层++) {
+      const 下一层节点组 = [];
+      for (const 父节点 of 当前层节点组) {
+        // 每个节点 60% 概率继续生子节点
+        if (Math.random() > 0.4) {
+          const 子节点数 = 1 + Math.floor(Math.random() * 2); // 1-2
+          for (let j = 0; j < 子节点数; j++) {
+            const 名称 = 取随机名称(目录名称池, 已用名称);
+            const 子目录 = 创建节点("目录", 名称, 父节点);
+            父节点.子节点组.push(子目录);
+            节点表.set(子目录.id, 子目录);
+            所有目录组.push(子目录);
+            下一层节点组.push(子目录);
+          }
+        }
+      }
+      if (下一层节点组.length === 0) break; // 该层没有节点，停止扩展
+      当前层节点组 = 下一层节点组;
+    }
+  }
+
+  // 随机分配文件到目录
+  if (所有目录组.length > 1) {
+    const 文件数 = 2 + Math.floor(Math.random() * 3); // 2-4
+    for (let i = 0; i < 文件数; i++) {
+      const 随机目录 = 所有目录组[Math.floor(Math.random() * 所有目录组.length)];
+      const 文件名称 = 取随机名称(文件名称池, 已用名称);
+      const 文件 = 创建节点("文件", 文件名称, 随机目录);
+      随机目录.子节点组.push(文件);
+      节点表.set(文件.id, 文件);
+    }
+  }
+
+  // 随机选择当前位置
+  当前位置节点 = 所有目录组[Math.floor(Math.random() * 所有目录组.length)];
+  当前位置节点.是当前位置 = true;
+  当前位置节点.当前位置过渡 = 1;
+
+  布局并动画();
+  更新提示符();
+}
+
+function 仅根目录初始化() {
+  根节点 = 创建节点("目录", "/", null);
+  节点表.clear();
+  节点表.set(根节点.id, 根节点);
+  当前位置节点 = 根节点;
+  根节点.是当前位置 = true;
+  根节点.当前位置过渡 = 1;
+
+  布局并动画();
+  更新提示符();
+}
+
+function 取随机名称(名称池, 已用名称) {
+  const 可用名称组 = 名称池.filter((n) => !已用名称.has(n));
+  if (可用名称组.length === 0) {
+    const 随机名 = 名称池[Math.floor(Math.random() * 名称池.length)] + "_" + Math.floor(Math.random() * 100);
+    已用名称.add(随机名);
+    return 随机名;
+  }
+  const 名称 = 可用名称组[Math.floor(Math.random() * 可用名称组.length)];
+  已用名称.add(名称);
+  return 名称;
+}
+
+function 重置() {
+  错误提示组 = [];
+  波纹组 = [];
+  根节点 = null;
+  当前位置节点 = null;
+  节点表.clear();
+
+  const 选中模式 = document.querySelector('input[name="初始化模式"]:checked');
+  const 模式 = 选中模式 ? 选中模式.value : "随机";
+
+  // 保存到 localStorage
+  localStorage.setItem("文件操作初始化模式", 模式);
+
+  if (模式 === "仅根目录") {
+    仅根目录初始化();
+  } else {
+    随机初始化();
+  }
+}
+
+// ==================== 启动时恢复设置 ====================
+function 恢复初始化模式() {
+  const 保存的模式 = localStorage.getItem("文件操作初始化模式");
+  if (保存的模式) {
+    const 单选按钮 = document.querySelector(`input[name="初始化模式"][value="${保存的模式}"]`);
+    if (单选按钮) 单选按钮.checked = true;
+  }
+}
+
+function 调整画布尺寸() {
+  const 容器 = 画布.parentElement;
+  画布宽 = 容器.clientWidth;
+  画布高 = 容器.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  画布.width = 画布宽 * dpr;
+  画布.height = 画布高 * dpr;
+  上下文.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (根节点) 布局并动画();
+  请求重绘();
+}
+
+// ==================== 事件绑定 ====================
+命令执行按钮.addEventListener("click", 执行命令);
+命令输入框.addEventListener("keydown", 处理键盘事件);
+命令输入框.addEventListener("input", 更新命令高亮);
+重置按钮.addEventListener("click", 重置);
+画布.addEventListener("mousedown", 处理鼠标按下);
+画布.addEventListener("mousemove", 处理鼠标移动);
+画布.addEventListener("mouseup", 处理鼠标松开);
+画布.addEventListener("mouseleave", 处理鼠标松开);
+window.addEventListener("resize", 调整画布尺寸);
+
+// 单选按钮变化时立即保存到 localStorage
+document.querySelectorAll('input[name="初始化模式"]').forEach((单选按钮) => {
+  单选按钮.addEventListener("change", () => {
+    localStorage.setItem("文件操作初始化模式", 单选按钮.value);
+  });
+});
+
+// ==================== 启动 ====================
+恢复初始化模式();
+调整画布尺寸();
+重置();
