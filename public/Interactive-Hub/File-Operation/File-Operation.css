@@ -1,0 +1,207 @@
+:root {
+  --光标-默认: url("/Images/Common/鼠标-默认.cur"), auto;
+  --光标-指向: url("/Images/Common/鼠标-指向.cur"), auto;
+}
+
+*,
+*::after,
+*::before {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #111;
+  color: silver;
+  font-family: "Google Sans Code", Consolas, "Noto Sans SC", 微软雅黑, sans-serif;
+}
+
+.总区 {
+  padding-top: 50px;
+}
+
+/* ------------------------- ↓ 设置区 ------------------------- */
+.设置区 {
+  position: fixed;
+  bottom: 25px;
+  left: 25px;
+  display: flex;
+  gap: 20px;
+  padding: 10px 20px;
+  background: rgba(17, 17, 17, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+}
+
+.初始化模式标签 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: var(--光标-指向);
+  font-size: 14px;
+  color: #aaa;
+  user-select: none;
+}
+
+.初始化模式标签 input[type="radio"] {
+  accent-color: #4a9eff;
+  cursor: var(--光标-指向);
+}
+
+.初始化模式标签 input[type="radio"]:checked + span {
+  color: #4a9eff;
+  font-weight: 600;
+}
+/* ------------------------- ↑ 设置区 ------------------------- */
+
+.Canvas容器 {
+  position: relative;
+  width: 100%;
+  height: clamp(500px, calc(100vh - 50px), 3000px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  cursor: var(--光标-默认);
+}
+
+/* ------------------------- ↓ 命令输入区 ------------------------- */
+/* ------------------------- ↓ 路径显示区 ------------------------- */
+.路径显示区 {
+  position: fixed;
+  bottom: calc(25px + 44px + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  font-family: "Google Sans Code", Consolas, "Noto Sans SC", 微软雅黑, sans-serif;
+  font-size: 14px;
+  color: #6ee7a0;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.路径显示区 .路径斜杠 {
+  color: #aaa;
+  margin: 0 1px;
+}
+/* ------------------------- ↑ 路径显示区 ------------------------- */
+
+.命令输入区 {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* padding: 8px 14px; */
+  /* background: rgba(17, 17, 17, 0.9); */
+  border: 2px solid #555;
+  border-radius: 10px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  z-index: 1001;
+  min-width: 520px;
+}
+
+.命令提示符 {
+  color: #4a9eff;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+  height: 100%;
+  padding: 0 14px;
+  align-content: center;
+  background-color: #333;
+}
+
+.命令输入包装 {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.命令高亮层 {
+  position: absolute;
+  inset: 0;
+  padding: 4px 6px;
+  font-family: "Google Sans Code", Consolas, "Noto Sans SC", 微软雅黑, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #e0e0e0;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
+  display: block;
+}
+
+.命令高亮层 .语法-命令 {
+  color: #ffffff;
+}
+
+.命令高亮层 .语法-参数 {
+  color: #e8a33d;
+}
+
+.命令高亮层 .语法-横杠 {
+  color: #a6a6a6;
+}
+
+.命令高亮层 .语法-路径 {
+  color: #38a368;
+}
+
+.命令输入框 {
+  position: relative;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: transparent;
+  caret-color: #e0e0e0;
+  font-family: "JetBrains Mono", "Noto Sans SC", monospace;
+  font-size: 15px;
+  line-height: 1.4;
+  padding: 4px 6px;
+}
+
+.命令输入框::placeholder {
+  color: #666;
+  font-size: 13px;
+}
+
+.命令输入框:focus::placeholder {
+  color: transparent;
+}
+
+.命令执行按钮 {
+  background: rgba(74, 158, 255, 0.25);
+  /* border: 1px solid rgba(74, 158, 255, 0.4); */
+  /* border-radius: 6px; */
+  color: #4a9eff;
+  aspect-ratio: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: var(--光标-指向);
+  transition: 0.2s;
+}
+
+.命令执行按钮:hover {
+  background: rgba(74, 158, 255, 0.3);
+  transform: scale(1.05);
+}
+/* ------------------------- ↑ 命令输入区 ------------------------- */
