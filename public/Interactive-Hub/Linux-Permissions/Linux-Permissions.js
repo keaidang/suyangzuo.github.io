@@ -285,6 +285,7 @@ const 命令提示符 = document.getElementById("命令提示符");
 const 重置按钮 = document.querySelector(".重置按钮");
 const 权限字母复选框 = document.getElementById("权限模式-字母");
 const 权限数字复选框 = document.getElementById("权限模式-数字");
+const 权限二进制复选框 = document.getElementById("权限模式-二进制");
 const 历史记录按钮 = document.getElementById("历史记录按钮");
 const 历史记录模态 = document.getElementById("历史记录模态");
 const 历史记录关闭按钮 = document.getElementById("历史记录关闭按钮");
@@ -430,11 +431,21 @@ function 测量节点尺寸(节点) {
   const 尺寸 = 是根目录 ? 配置.根目录 : 配置[节点.类型];
   上下文.font = 尺寸.名称字体;
   const 文本宽 = 上下文.measureText(节点.名称).width;
-  // 保证节点能容纳最宽的权限行 "u: rwx, 7"（含权限位之间的间隔）
-  上下文.font = 尺寸.权限字体;
-  const 权限文本宽 = 计算行段宽度(构建权限行段("u", 7, true, true));
-  节点.宽 = Math.ceil(Math.max(文本宽 + 尺寸.文本边距 * 2, 权限文本宽 + 尺寸.权限内边距 * 2));
+  const 显示字母 = 权限字母复选框 ? 权限字母复选框.checked : true;
+  const 显示数字 = 权限数字复选框 ? 权限数字复选框.checked : true;
+  const 显示二进制 = 显示字母 && (权限二进制复选框 ? 权限二进制复选框.checked : true);
+  const 有权限区 = 显示字母 || 显示数字;
+  // 宽度：容纳名称与最宽权限行（行内容随显示模式收窄，权限区完全隐藏时仅需容纳名称）
+  let 权限文本宽 = 0;
+  if (有权限区) {
+    上下文.font = 尺寸.权限字体;
+    权限文本宽 = 计算行段宽度(构建权限行段("u", 7, 显示字母, 显示数字)) + 尺寸.权限内边距 * 2;
+  }
+  节点.宽 = Math.ceil(Math.max(文本宽 + 尺寸.文本边距 * 2, 权限文本宽));
+  // 高度：隐藏二进制小行时减去 3 个小行高；权限区完全隐藏时再减去 2 个主行高
   节点.高 = 尺寸.高;
+  if (!显示二进制) 节点.高 -= 3 * 尺寸.二进制行高;
+  if (!有权限区) 节点.高 -= 2 * 尺寸.权限行高;
 }
 
 function 测量所有节点(节点) {
@@ -728,7 +739,7 @@ function 计算权限区几何(节点) {
 
   const 是根目录 = !节点.父节点;
   const 尺寸 = 是根目录 ? 配置.根目录 : 配置[节点.类型];
-  const 显示二进制 = 显示字母; // 二进制位需与字母逐位对齐，仅在字母模式显示
+  const 显示二进制 = 显示字母 && (权限二进制复选框 ? 权限二进制复选框.checked : true); // 二进制位需与字母逐位对齐，仅在字母模式且勾选二进制时显示
   const 主行高 = 尺寸.权限行高;
   const 小行高 = 尺寸.二进制行高;
   const 类组 = [
@@ -2901,10 +2912,15 @@ function 检查mv错误(源节点, 目标父节点) {
   return 检查目录写权限错误("mv", 目标父节点);
 }
 
-// chmod：需要读取并改写目标自身，需目标 r+w（属主位）
+// chmod：权限位存储在 inode 元数据中，属主（本工具将操作者视为属主）即可修改，
+// 与目标自身的 r/w/x 权限无关（权限为 000 也能被属主修改）；
+// 但解析路径需要沿途祖先目录的 x（执行）权限
 function 检查chmod错误(目标节点) {
-  if (!属主有位(目标节点, 0b110)) {
-    return `chmod：权限不足：${节点路径文本(目标节点)}\n缺少 r（读取）或 w（写入）权限，无法修改权限`;
+  if (目标节点.父节点) {
+    const 拦截 = 找不可进入目录(目标节点.父节点);
+    if (拦截) {
+      return `chmod：权限不足：${节点路径文本(拦截)}\n目录缺少 x（执行）权限，无法进入`;
+    }
   }
   return null;
 }
@@ -3806,21 +3822,26 @@ document.querySelectorAll('input[name="初始化模式"]').forEach((单选按钮
   });
 });
 
-// 权限模式复选框变化时重绘并保存到 localStorage
+// 权限模式复选框变化时重新布局（节点宽高随显示内容变化）并保存到 localStorage
 权限字母复选框.addEventListener("change", () => {
   localStorage.setItem("权限字母模式", 权限字母复选框.checked);
-  请求重绘();
+  布局并动画();
 });
 权限数字复选框.addEventListener("change", () => {
   localStorage.setItem("权限数字模式", 权限数字复选框.checked);
-  请求重绘();
+  布局并动画();
+});
+权限二进制复选框.addEventListener("change", () => {
+  localStorage.setItem("权限二进制模式", 权限二进制复选框.checked);
+  布局并动画();
 });
 
 // ==================== 启动 ====================
 恢复初始化模式();
-// 恢复权限模式显示设置（默认两者都显示）
+// 恢复权限模式显示设置（默认三者都显示）
 if (localStorage.getItem("权限字母模式") === "false") 权限字母复选框.checked = false;
 if (localStorage.getItem("权限数字模式") === "false") 权限数字复选框.checked = false;
+if (localStorage.getItem("权限二进制模式") === "false") 权限二进制复选框.checked = false;
 调整画布尺寸();
 重置();
 聚焦命令输入框();
