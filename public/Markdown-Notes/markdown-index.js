@@ -54,6 +54,21 @@ const 笔记目录区 = 笔记对话框.querySelector(".笔记目录区");
 const 关闭对话框按钮 = 笔记对话框.querySelector("#关闭对话框");
 const 笔记区目录组 = [];
 const 笔记目录区标题组 = [];
+let 当前选中目录 = null;
+
+// 每个大类的分组状态独立存储，无记录时默认不分组
+const 分组状态存储键 = "二级目录分组状态";
+
+function 获取分组状态(键) {
+  const 状态表 = JSON.parse(localStorage.getItem(分组状态存储键) || "{}");
+  return 状态表[键] === true;
+}
+
+function 设置分组状态(键, 状态) {
+  const 状态表 = JSON.parse(localStorage.getItem(分组状态存储键) || "{}");
+  状态表[键] = 状态;
+  localStorage.setItem(分组状态存储键, JSON.stringify(状态表));
+}
 
 // 添加 URL 处理函数
 function 更新URL(技术栈, 笔记文件名, { shouldPush = true } = {}) {
@@ -119,8 +134,6 @@ function 关闭笔记对话框({ 更新历史 = true } = {}) {
 
   // 重置所有状态
   当前高亮索引 = -1;
-  滚动方向 = "down";
-  上次滚动位置 = 0;
   点击目标索引 = -1;
   点击目标时间戳 = 0;
 
@@ -258,59 +271,192 @@ function 切换目录(键, { 更新历史 = true } = {}) {
     生成二级目录(标准键);
   }
 
+  更新分组按钮();
+
   document.title = `知识库 - ${标准键}`;
 }
 
 function 生成二级目录(键) {
+  当前选中目录 = 键;
   const 笔记对象组 = 知识库[键].笔记;
-  for (const [index, 笔记对象] of 笔记对象组.entries()) {
-    const 条目链接 = document.createElement("div");
-    条目链接.className = "条目链接";
-    // 日期为 0年0月0日 表示笔记未完成，标记未完成样式（CSS 控制亮度）
-    if (!笔记对象.时间.年 && !笔记对象.时间.月 && !笔记对象.时间.日) {
-      条目链接.classList.add("未完成");
-    }
-    二级目录区.appendChild(条目链接);
-    const 条目链接旋转容器 = document.createElement("div");
-    条目链接旋转容器.className = "条目链接旋转容器";
-    条目链接.appendChild(条目链接旋转容器);
-    const 链接序号 = document.createElement("span");
-    链接序号.className = "链接序号";
-    链接序号.textContent = index + 1;
-    const 链接标题 = document.createElement("span");
-    链接标题.className = "链接标题";
-    链接标题.textContent = 笔记对象.标题;
-    const 链接序号与标题 = document.createElement("div");
-    链接序号与标题.className = "链接序号与标题";
-    链接序号与标题.append(链接序号, 链接标题);
 
-    const 链接作者与照片 = document.createElement("div");
-    链接作者与照片.className = "链接作者与照片";
-    const 链接作者 = document.createElement("span");
-    链接作者.className = "链接作者";
-    链接作者.textContent = 笔记对象.作者;
-    const 链接作者照片 = document.createElement("img");
-    链接作者照片.className = "链接作者照片";
-    链接作者照片.src = 笔记对象.作者
-      ? `/Images/Contributors/${笔记对象.作者}.jpg`
-      : "/Images/Contributors/Mystery_Men.jpg";
-    链接作者照片.alt = "链接作者照片";
-    链接作者与照片.append(链接作者照片, 链接作者);
-    const 链接时间 = document.createElement("span");
-    链接时间.className = "链接时间";
-    链接时间.textContent = `${笔记对象.时间.年}.${笔记对象.时间.月}.${笔记对象.时间.日}`;
-    const 作者与时间 = document.createElement("div");
-    作者与时间.className = "链接作者与时间";
-    作者与时间.append(链接作者与照片, 链接时间);
-    条目链接旋转容器.append(链接序号与标题, 作者与时间);
-
-    const 笔记文件名 = 笔记对象.标题.replaceAll(" ", "");
-    条目链接.dataset.技术栈 = 键;
-    条目链接.dataset.笔记文件名 = 笔记文件名;
-    条目链接.addEventListener("click", () => {
-      加载并展示笔记(键, 笔记文件名);
-    });
+  if (获取分组状态(键)) {
+    生成分组视图(键, 笔记对象组);
+  } else {
+    生成平铺视图(键, 笔记对象组);
   }
+}
+
+function 生成平铺视图(键, 笔记对象组) {
+  for (const [index, 笔记对象] of 笔记对象组.entries()) {
+    const 条目链接 = 创建条目链接(键, 笔记对象, index);
+    二级目录区.appendChild(条目链接);
+  }
+}
+
+function 生成分组视图(键, 笔记对象组) {
+  // 按作者分组，作者为空的放到最后一组
+  const 分组表 = new Map();
+  const 空作者组 = [];
+
+  for (const 笔记对象 of 笔记对象组) {
+    const 作者 = 笔记对象.作者 || "";
+    if (!作者) {
+      空作者组.push(笔记对象);
+    } else {
+      if (!分组表.has(作者)) 分组表.set(作者, []);
+      分组表.get(作者).push(笔记对象);
+    }
+  }
+
+  // 作者分组按作者名排序
+  const 排序作者组 = Array.from(分组表.keys()).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+
+  let 全局序号 = 0;
+
+  // 渲染有作者的分组
+  for (const 作者 of 排序作者组) {
+    const 分组容器 = document.createElement("div");
+    分组容器.className = "作者分组容器";
+
+    const 分组标题 = document.createElement("div");
+    分组标题.className = "作者分组标题";
+    const 作者头像 = document.createElement("img");
+    作者头像.className = "作者分组头像";
+    作者头像.src = `/Images/Contributors/${作者}.jpg`;
+    作者头像.alt = 作者;
+    const 作者名称 = document.createElement("span");
+    作者名称.className = "作者分组名称";
+    作者名称.textContent = 作者;
+    const 条目计数 = document.createElement("span");
+    条目计数.className = "作者分组计数";
+    const 条目计数数字 = document.createElement("span");
+    条目计数数字.className = "作者分组计数数字";
+    条目计数数字.textContent = 分组表.get(作者).length;
+    条目计数.append(条目计数数字, "篇");
+    分组标题.append(作者头像, 作者名称, 条目计数);
+    分组容器.appendChild(分组标题);
+
+    const 条目容器 = document.createElement("div");
+    条目容器.className = "作者分组条目容器";
+    分组表.get(作者).forEach((笔记对象, 索引) => {
+      const 条目链接 = 创建条目链接(键, 笔记对象, 索引);
+      条目容器.appendChild(条目链接);
+    });
+    分组容器.appendChild(条目容器);
+    二级目录区.appendChild(分组容器);
+  }
+
+  // 空作者放到最后一组
+  if (空作者组.length > 0) {
+    const 分组容器 = document.createElement("div");
+    分组容器.className = "作者分组容器";
+
+    const 分组标题 = document.createElement("div");
+    分组标题.className = "作者分组标题";
+    const 作者头像 = document.createElement("img");
+    作者头像.className = "作者分组头像";
+    作者头像.src = "/Images/Contributors/Mystery_Men.jpg";
+    作者头像.alt = "匿名";
+    const 作者名称 = document.createElement("span");
+    作者名称.className = "作者分组名称";
+    作者名称.textContent = "未完成";
+    const 条目计数 = document.createElement("span");
+    条目计数.className = "作者分组计数";
+    const 条目计数数字 = document.createElement("span");
+    条目计数数字.className = "作者分组计数数字";
+    条目计数数字.textContent = 空作者组.length;
+    条目计数.append(条目计数数字, "篇");
+    分组标题.append(作者头像, 作者名称, 条目计数);
+    分组容器.appendChild(分组标题);
+
+    const 条目容器 = document.createElement("div");
+    条目容器.className = "作者分组条目容器";
+    空作者组.forEach((笔记对象, 索引) => {
+      const 条目链接 = 创建条目链接(键, 笔记对象, 索引);
+      条目容器.appendChild(条目链接);
+    });
+    分组容器.appendChild(条目容器);
+    二级目录区.appendChild(分组容器);
+  }
+}
+
+function 创建条目链接(键, 笔记对象, 序号) {
+  const 条目链接 = document.createElement("div");
+  条目链接.className = "条目链接";
+  // 日期为 0年0月0日 表示笔记未完成，标记未完成样式（CSS 控制亮度）
+  if (!笔记对象.时间.年 && !笔记对象.时间.月 && !笔记对象.时间.日) {
+    条目链接.classList.add("未完成");
+  }
+  const 条目链接旋转容器 = document.createElement("div");
+  条目链接旋转容器.className = "条目链接旋转容器";
+  条目链接.appendChild(条目链接旋转容器);
+  const 链接序号 = document.createElement("span");
+  链接序号.className = "链接序号";
+  链接序号.textContent = 序号 + 1;
+  const 链接标题 = document.createElement("span");
+  链接标题.className = "链接标题";
+  链接标题.textContent = 笔记对象.标题;
+  const 链接序号与标题 = document.createElement("div");
+  链接序号与标题.className = "链接序号与标题";
+  链接序号与标题.append(链接序号, 链接标题);
+
+  const 链接作者与照片 = document.createElement("div");
+  链接作者与照片.className = "链接作者与照片";
+  const 链接作者 = document.createElement("span");
+  链接作者.className = "链接作者";
+  链接作者.textContent = 笔记对象.作者;
+  const 链接作者照片 = document.createElement("img");
+  链接作者照片.className = "链接作者照片";
+  链接作者照片.src = 笔记对象.作者
+    ? `/Images/Contributors/${笔记对象.作者}.jpg`
+    : "/Images/Contributors/Mystery_Men.jpg";
+  链接作者照片.alt = "链接作者照片";
+  链接作者与照片.append(链接作者照片, 链接作者);
+  const 链接时间 = document.createElement("span");
+  链接时间.className = "链接时间";
+  链接时间.textContent = `${笔记对象.时间.年}.${笔记对象.时间.月}.${笔记对象.时间.日}`;
+  const 作者与时间 = document.createElement("div");
+  作者与时间.className = "链接作者与时间";
+  作者与时间.append(链接作者与照片, 链接时间);
+  条目链接旋转容器.append(链接序号与标题, 作者与时间);
+
+  const 笔记文件名 = 笔记对象.标题.replaceAll(" ", "");
+  条目链接.dataset.技术栈 = 键;
+  条目链接.dataset.笔记文件名 = 笔记文件名;
+  条目链接.addEventListener("click", () => {
+    加载并展示笔记(键, 笔记文件名);
+  });
+  return 条目链接;
+}
+
+function 更新分组按钮() {
+  // 移除旧按钮
+  const 旧按钮 = document.querySelector(".分组切换按钮");
+  if (旧按钮) 旧按钮.remove();
+
+  // 只在有笔记的目录显示按钮
+  if (!当前选中目录 || 知识库[当前选中目录].笔记.length === 0) return;
+
+  const 按钮 = document.createElement("button");
+  按钮.className = "分组切换按钮";
+  const 已分组 = 获取分组状态(当前选中目录);
+  按钮.textContent = "按作者分组";
+  if (已分组) {
+    const 勾选标记 = document.createElement("span");
+    勾选标记.className = "分组勾选标记";
+    勾选标记.textContent = "✔";
+    按钮.appendChild(勾选标记);
+  }
+  按钮.addEventListener("click", () => {
+    const 新状态 = !获取分组状态(当前选中目录);
+    设置分组状态(当前选中目录, 新状态);
+    二级目录区.innerHTML = "";
+    生成二级目录(当前选中目录);
+    更新分组按钮();
+  });
+  // 按钮放到二级目录区内部末尾
+  二级目录区.appendChild(按钮);
 }
 
 function 加载并展示笔记(技术栈, 笔记文件名, { 更新历史 = true } = {}) {
@@ -392,8 +538,6 @@ function 生成笔记区内容(技术栈, 笔记文件名, 文本, { 更新历�
 
   // 重置滚动状态
   当前高亮索引 = -1;
-  滚动方向 = "down";
-  上次滚动位置 = 0;
   点击目标索引 = -1; // 重置点击目标记录
   点击目标时间戳 = 0;
 
@@ -424,8 +568,6 @@ function 生成笔记目录区内容() {
 
   // 重置所有状态
   当前高亮索引 = -1;
-  滚动方向 = "down";
-  上次滚动位置 = 0;
   点击目标索引 = -1;
   点击目标时间戳 = 0;
 
@@ -523,14 +665,8 @@ function 生成笔记目录区内容() {
     }
   }
 
-  // 初始化交叉观察器并开始观察
-  初始化交叉观察器();
-  开始观察标题();
-
-  // 延迟设置初始高亮，确保高亮第一个一级标题
-  setTimeout(() => {
-    设置初始高亮();
-  }, 100);
+  // 内容变化后按当前滚动位置立即同步一次高亮
+  处理滚动高亮();
 }
 
 function 获取笔记作者(技术栈, 笔记文件名) {
@@ -599,123 +735,67 @@ function 生成作者和日期(技术栈, 笔记文件名) {
   笔记信息容器.append(作者信息组, 日期容器);
 }
 
-function 防抖(回调, 延时 = 100) {
-  let timer = null;
-  return function (...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      回调.apply(this, args);
-    }, 延时);
-  };
-}
-
-// 交叉观察器配置
-const 交叉观察器配置 = {
-  root: null, // 使用视口作为根
-  rootMargin: "-20% 0px -70% 0px", // 顶部25%处开始高亮，底部50%作为结束区域
-  threshold: /* [0, 0.1, 0.5, 1] */ 0, // 多个阈值，更精确的触发
-};
-
-let 交叉观察器 = null;
+// 滚动高亮相关：基于滚动位置的 scrollspy（二分查找，准确且高性能）
 let 当前高亮索引 = -1;
-let 滚动方向 = "down";
-let 上次滚动位置 = 0;
 let 点击目标索引 = -1; // 记录点击的目标标题索引
 let 点击目标时间戳 = 0; // 记录点击的时间戳
+let 滚动动画帧 = null;
+// 标题顶部距滚动容器顶部该距离以内，视为"当前阅读位置"
+const 高亮触发偏移 = 80;
 
-// 检测滚动方向
-function 检测滚动方向(当前位置) {
-  滚动方向 = 当前位置 > 上次滚动位置 ? "down" : "up";
-  上次滚动位置 = 当前位置;
+// 二分查找：最后一个"标题顶部距容器顶部 ≤ 触发偏移"的标题索引
+function 计算当前标题索引() {
+  const 容器顶部 = 笔记对话框.getBoundingClientRect().top;
+  let 低 = 0;
+  let 高 = 笔记区目录组.length - 1;
+  let 结果 = -1;
+
+  while (低 <= 高) {
+    const 中 = (低 + 高) >> 1;
+    const 标题偏移 = 笔记区目录组[中].getBoundingClientRect().top - 容器顶部;
+    if (标题偏移 <= 高亮触发偏移) {
+      结果 = 中;
+      低 = 中 + 1;
+    } else {
+      高 = 中 - 1;
+    }
+  }
+  // 尚未滚动到第一个标题（页面停在顶部）时，高亮第一个标题
+  return 结果 === -1 ? 0 : 结果;
 }
 
-// 初始化交叉观察器
-function 初始化交叉观察器() {
-  if (交叉观察器) {
-    交叉观察器.disconnect();
+function 处理滚动高亮() {
+  滚动动画帧 = null;
+  if (笔记区目录组.length === 0) return;
+
+  // 点击目标优先：点击后短时间内、且尚未滚动到目标位置时，保持点击高亮不跳动
+  if (点击目标索引 !== -1) {
+    const 目标标题 = 笔记区目录组[点击目标索引];
+    const 容器顶部 = 笔记对话框.getBoundingClientRect().top;
+    const 目标已越过 = !目标标题 || 目标标题.getBoundingClientRect().top - 容器顶部 <= 高亮触发偏移;
+    const 点击已过期 = Date.now() - 点击目标时间戳 >= 3000;
+
+    if (!目标已越过 && !点击已过期) {
+      return;
+    }
+    点击目标索引 = -1;
+    点击目标时间戳 = 0;
   }
 
-  交叉观察器 = new IntersectionObserver((entries) => {
-    // 过滤出可见的标题
-    const 可见标题 = entries.filter((entry) => entry.isIntersecting);
-
-    if (可见标题.length === 0) return;
-
-    // 获取当前滚动位置
-    const 滚动容器 = 笔记对话框;
-    const 当前滚动位置 = 滚动容器.scrollTop;
-    检测滚动方向(当前滚动位置);
-
-    // 计算每个可见标题的"优先级分数"
-    const 标题分数 = 可见标题.map((entry) => {
-      const 标题位置 = entry.boundingClientRect.top;
-      const 可见度 = entry.intersectionRatio;
-      const 标题索引 = 笔记区目录组.indexOf(entry.target);
-
-      // 基础分数：越靠近视口顶部分数越高
-      let 分数 = 1000 - Math.abs(标题位置 - 100); // 100px是理想位置
-
-      // 可见度加成：可见度越高分数越高
-      分数 += 可见度 * 100;
-
-      // 滚动方向加成：向下滚动时，位置更低的标题得分更高
-      if (滚动方向 === "down") {
-        分数 += 标题位置 > 100 ? 50 : 0;
-      } else if (滚动方向 === "up") {
-        分数 += 标题位置 < 100 ? 50 : 0;
-      }
-
-      // 点击目标加成：如果是最近点击的目标，给予额外分数
-      const 当前时间 = Date.now();
-      if (标题索引 === 点击目标索引 && 当前时间 - 点击目标时间戳 < 3000) {
-        分数 += 1000; // 大幅提高点击目标的分数
-      }
-
-      return {
-        entry,
-        分数,
-        位置: 标题位置,
-        索引: 标题索引,
-      };
-    });
-
-    // 选择分数最高的标题
-    标题分数.sort((a, b) => b.分数 - a.分数);
-    const 最佳标题 = 标题分数[0];
-
-    const 目标索引 = 笔记区目录组.indexOf(最佳标题.entry.target);
-
-    if (目标索引 !== -1 && 目标索引 !== 当前高亮索引) {
-      // 额外的防回跳检查
-      const 当前标题位置 = 笔记区目录组[当前高亮索引]?.getBoundingClientRect().top || 0;
-      const 新标题位置 = 最佳标题.entry.target.getBoundingClientRect().top;
-
-      let 应该切换 = true;
-
-      // 检查是否是点击目标
-      const 当前时间 = Date.now();
-      const 是点击目标 = 目标索引 === 点击目标索引 && 当前时间 - 点击目标时间戳 < 3000;
-
-      // 如果是点击目标，强制切换，跳过防回跳检查
-      if (是点击目标) {
-        应该切换 = true;
-      } else {
-        // 向下滚动时，新标题应该在当前标题下方
-        if (滚动方向 === "down" && 新标题位置 < 当前标题位置 - 20) {
-          应该切换 = false;
-        }
-        // 向上滚动时，新标题应该在当前标题上方
-        else if (滚动方向 === "up" && 新标题位置 > 当前标题位置 + 20) {
-          应该切换 = false;
-        }
-      }
-
-      if (应该切换) {
-        更新高亮状态(目标索引);
-      }
-    }
-  }, 交叉观察器配置);
+  const 目标索引 = 计算当前标题索引();
+  if (目标索引 !== -1 && 目标索引 !== 当前高亮索引) {
+    更新高亮状态(目标索引);
+  }
 }
+
+// 滚动事件用 rAF 合帧，passive 提升滚动性能
+function 请求滚动处理() {
+  if (滚动动画帧 === null) {
+    滚动动画帧 = requestAnimationFrame(处理滚动高亮);
+  }
+}
+
+笔记对话框.addEventListener("scroll", 请求滚动处理, { passive: true });
 
 // 更新高亮状态
 function 更新高亮状态(目标索引) {
@@ -752,45 +832,6 @@ function 更新高亮状态(目标索引) {
     }
   }
 }
-
-// 开始观察所有标题
-function 开始观察标题() {
-  if (!交叉观察器) return;
-
-  // 清除之前的观察
-  交叉观察器.disconnect();
-
-  // 观察所有标题
-  for (const 标题 of 笔记区目录组) {
-    交叉观察器.observe(标题);
-  }
-}
-
-// 设置初始高亮
-function 设置初始高亮() {
-  if (笔记区目录组.length > 0) {
-    // 清除所有高亮状态
-    const 所有高亮目录 = 笔记目录区.querySelectorAll(".当前目录");
-    所有高亮目录.forEach((目录) => 目录.classList.remove("当前目录"));
-
-    当前高亮索引 = 0; // 第一个标题总是一级标题
-    const 第一个目录 = 笔记目录区标题组[0];
-    第一个目录.classList.add("当前目录");
-
-    // 清除点击目标记录
-    点击目标索引 = -1;
-    点击目标时间戳 = 0;
-  }
-}
-
-// 滚动事件监听器（用于检测滚动方向）
-const 滚动方向检测器 = 防抖(() => {
-  const 滚动容器 = 笔记对话框;
-  const 当前滚动位置 = 滚动容器.scrollTop;
-  检测滚动方向(当前滚动位置);
-}, 50);
-
-笔记对话框.addEventListener("scroll", 滚动方向检测器);
 
 // 图片点击放大功能
 let 图片对话框 = null;
