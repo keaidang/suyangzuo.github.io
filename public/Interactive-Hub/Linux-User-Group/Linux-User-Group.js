@@ -1331,14 +1331,14 @@ function 绘制错误提示() {
   const 行组 = 提示.消息.split("\n");
   const 行数 = 行组.length;
 
-  // 计算最宽一行的文本宽度，框宽 = 文本宽 + 左右各 20 + 内边距
+  // 计算最宽一行的文本宽度，框宽完全按内容自适应（含左右留白），仅设较大上限防止超出画布
   上下文.font = 配置错误.字体;
   let 最大文本宽 = 0;
   for (const 行 of 行组) {
     const 行宽 = 上下文.measureText(行).width;
     if (行宽 > 最大文本宽) 最大文本宽 = 行宽;
   }
-  const 框宽 = Math.min(最大文本宽 + 40 + 配置错误.内边距 * 2, 配置错误.最大宽度);
+  const 框宽 = Math.min(最大文本宽 + 配置错误.内边距 * 2, 画布宽 - 40);
   const 框高 = 行数 * 行高 + 配置错误.内边距 * 2;
 
   // 计算透明度
@@ -1367,6 +1367,7 @@ function 绘制错误提示() {
   上下文.restore();
 
   // 文字
+  上下文.save();
   上下文.fillStyle = 配置错误.文字颜色;
   上下文.font = 配置错误.字体;
   上下文.textAlign = "center";
@@ -1376,7 +1377,7 @@ function 绘制错误提示() {
   for (let i = 0; i < 行组.length; i++) {
     上下文.fillText(行组[i], 中心X, 起始Y + i * 行高);
   }
-  上下文.globalAlpha = 1;
+  上下文.restore();
 }
 
 function 绘制波纹() {
@@ -2105,7 +2106,7 @@ const 命令高亮层 = document.getElementById("命令高亮层");
 const 命令输入区 = document.querySelector(".命令输入区");
 
 function 高亮命令语法(文本) {
-  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch", "cp", "mv", "chmod", "chown", "useradd", "su", "usermod", "userdel", "groupdel"];
+  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch", "cp", "mv", "chmod", "chown", "useradd", "su", "usermod", "userdel", "groupdel", "gpasswd"];
   const 转义 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   // 路径中的特殊字符用单独颜色高亮
   const 转义路径 = (s) =>
@@ -2317,19 +2318,19 @@ function 解析命令(输入) {
   // 统一展开参数开头的 ~ 为主目录绝对路径，让所有命令都能识别 ~
   const 参数组 = 部分组.slice(1).map(展开主目录路径);
 
-  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch", "cp", "mv", "chmod", "chown", "useradd", "su", "usermod", "userdel", "groupdel"];
+  const 有效命令组 = ["cd", "mkdir", "rmdir", "rm", "touch", "cp", "mv", "chmod", "chown", "useradd", "su", "usermod", "userdel", "groupdel", "gpasswd"];
   if (!有效命令组.includes(命令)) {
     return {
       有效: false,
       错误: {
         有错误: true,
-        消息: `未知命令：${命令}\n支持：cd / mkdir / rmdir / rm / touch / cp / mv / chmod / chown / useradd / su / usermod / userdel / groupdel（可加 sudo 前缀提权）`,
+        消息: `未知命令：${命令}\n支持：cd / mkdir / rmdir / rm / touch / cp / mv / chmod / chown / useradd / su / usermod / userdel / groupdel / gpasswd（可加 sudo 前缀提权）`,
       },
     };
   }
 
   // 需要 root 提权的管理类命令：未加 sudo 时直接报错
-  const 需提权命令组 = ["chown", "useradd", "usermod", "userdel", "groupdel"];
+  const 需提权命令组 = ["chown", "useradd", "usermod", "userdel", "groupdel", "gpasswd"];
   if (需提权命令组.includes(命令) && !提权) {
     return { 有效: false, 错误: { 有错误: true, 消息: `${命令}：权限不足\n该命令需要 root 权限，请使用 sudo` } };
   }
@@ -3110,6 +3111,8 @@ function 解析命令(输入) {
       let 移动主目录 = false;
       let 登录shell = null;
       let 主组 = null;
+      let 附加组 = null;
+      let 追加附加组 = false;
       let 目标用户 = null;
       for (let i = 0; i < 参数组.length; i++) {
         const 参数 = 参数组[i];
@@ -3131,18 +3134,42 @@ function 解析命令(输入) {
           const 值 = 参数组[++i];
           if (!值) return { 有效: false, 错误: { 有错误: true, 消息: "usermod：-g 需要指定主组\n用法：usermod -g <主组> <用户名>" } };
           主组 = 值;
+        } else if (参数 === "-a" || 参数 === "--append") {
+          追加附加组 = true;
+        } else if (参数 === "-G" || 参数 === "--groups") {
+          const 值 = 参数组[++i];
+          if (!值) return { 有效: false, 错误: { 有错误: true, 消息: "usermod：-G 需要指定附加组列表\n用法：usermod -G <组1,组2,...> <用户名>" } };
+          附加组 = 值.split(",").map((s) => s.trim()).filter(Boolean);
+        } else if (参数.startsWith("-") && 参数.length > 1 && !参数.startsWith("--")) {
+          // 支持组合短选项，如 -aG
+          const 标志组 = 参数.slice(1).split("");
+          let 有效 = true;
+          for (const 标志 of 标志组) {
+            if (标志 === "a") 追加附加组 = true;
+            else if (标志 === "G") {
+              const 值 = 参数组[++i];
+              if (!值) return { 有效: false, 错误: { 有错误: true, 消息: "usermod：-G 需要指定附加组列表\n用法：usermod -G <组1,组2,...> <用户名>" } };
+              附加组 = 值.split(",").map((s) => s.trim()).filter(Boolean);
+            } else {
+              有效 = false;
+              break;
+            }
+          }
+          if (!有效) {
+            return { 有效: false, 错误: { 有错误: true, 消息: `usermod：无效参数 ${参数}\n支持：-l（改用户名）-d（改主目录）-m（移动主目录内容）-s（改登录shell）-g（改主组）-a（追加附加组）-G（设置附加组）` } };
+          }
         } else if (参数.startsWith("-")) {
-          return { 有效: false, 错误: { 有错误: true, 消息: `usermod：无效参数 ${参数}\n支持：-l（改用户名）-d（改主目录）-m（移动主目录内容）-s（改登录shell）-g（改主组）` } };
+          return { 有效: false, 错误: { 有错误: true, 消息: `usermod：无效参数 ${参数}\n支持：-l（改用户名）-d（改主目录）-m（移动主目录内容）-s（改登录shell）-g（改主组）-a（追加附加组）-G（设置附加组）` } };
         } else if (!目标用户) {
           目标用户 = 参数;
         } else {
-          return { 有效: false, 错误: { 有错误: true, 消息: "usermod：参数过多\n用法：usermod [-l 新名] [-d 新主目录 [-m]] [-s shell] [-g 主组] <用户名>" } };
+          return { 有效: false, 错误: { 有错误: true, 消息: "usermod：参数过多\n用法：usermod [-l 新名] [-d 新主目录 [-m]] [-s shell] [-g 主组] [-aG 附加组] <用户名>" } };
         }
       }
-      if (!目标用户) return { 有效: false, 错误: { 有错误: true, 消息: "usermod：缺少用户名\n用法：usermod [-l 新名] [-d 新主目录 [-m]] [-s shell] [-g 主组] <用户名>" } };
+      if (!目标用户) return { 有效: false, 错误: { 有错误: true, 消息: "usermod：缺少用户名\n用法：usermod [-l 新名] [-d 新主目录 [-m]] [-s shell] [-g 主组] [-aG 附加组] <用户名>" } };
       const 用户 = 面板用户组.find((u) => u.名称 === 目标用户);
       if (!用户) return { 有效: false, 错误: { 有错误: true, 消息: `usermod：用户不存在：${目标用户}` } };
-      return 包装({ 有效: true, 命令: "usermod", 用户, 选项: { 新名称, 新主目录, 移动主目录, 登录shell, 主组 } });
+      return 包装({ 有效: true, 命令: "usermod", 用户, 选项: { 新名称, 新主目录, 移动主目录, 登录shell, 主组, 附加组, 追加附加组 } });
     }
 
     case "userdel": {
@@ -3172,6 +3199,32 @@ function 解析命令(输入) {
       if (!名称) return { 有效: false, 错误: { 有错误: true, 消息: "groupdel：缺少组名\n用法：groupdel <组名>" } };
       if (!面板组组.some((g) => g.名称 === 名称)) return { 有效: false, 错误: { 有错误: true, 消息: `groupdel：组不存在：${名称}` } };
       return 包装({ 有效: true, 命令: "groupdel", 组名: 名称 });
+    }
+
+    case "gpasswd": {
+      // 支持：gpasswd -d <用户名> <组名>（将用户从附加组中删除）
+      let 删除用户 = null;
+      let 组名 = null;
+      for (let i = 0; i < 参数组.length; i++) {
+        const 参数 = 参数组[i];
+        if (参数 === "-d") {
+          const 值 = 参数组[++i];
+          if (!值) return { 有效: false, 错误: { 有错误: true, 消息: "gpasswd：-d 需要指定用户名\n用法：gpasswd -d <用户名> <组名>" } };
+          删除用户 = 值;
+        } else if (参数.startsWith("-")) {
+          return { 有效: false, 错误: { 有错误: true, 消息: `gpasswd：无效参数 ${参数}\n支持：-d（将用户从附加组中删除）` } };
+        } else if (!组名) {
+          组名 = 参数;
+        } else {
+          return { 有效: false, 错误: { 有错误: true, 消息: "gpasswd：参数过多\n用法：gpasswd -d <用户名> <组名>" } };
+        }
+      }
+      if (!删除用户) return { 有效: false, 错误: { 有错误: true, 消息: "gpasswd：缺少 -d 参数\n用法：gpasswd -d <用户名> <组名>" } };
+      if (!组名) return { 有效: false, 错误: { 有错误: true, 消息: "gpasswd：缺少组名\n用法：gpasswd -d <用户名> <组名>" } };
+      const 用户 = 面板用户组.find((u) => u.名称 === 删除用户);
+      if (!用户) return { 有效: false, 错误: { 有错误: true, 消息: `gpasswd：用户不存在：${删除用户}` } };
+      if (!面板组组.some((g) => g.名称 === 组名)) return { 有效: false, 错误: { 有错误: true, 消息: `gpasswd：组不存在：${组名}` } };
+      return 包装({ 有效: true, 命令: "gpasswd", 用户, 组名 });
     }
   }
 }
@@ -3410,6 +3463,10 @@ function 执行命令() {
     }
     case "groupdel": {
       执行groupdel(解析.组名);
+      break;
+    }
+    case "gpasswd": {
+      执行gpasswd(解析.用户, 解析.组名);
       break;
     }
   }
@@ -4125,6 +4182,10 @@ function 执行useradd(名称, 选项) {
     const 节点 = 创建用户主目录节点(名称, 名称);
     if (节点) 主目录 = "/home/" + 名称;
   }
+  // 同步创建同名组并作为新用户的主组
+  if (!面板组组.some((g) => g.名称 === 名称)) {
+    面板组组.push({ 名称, 配色索引: 面板组组.length });
+  }
   面板用户组.push({ 名称, 主组: 名称, 附加组组: [], 主目录, 登录shell: 选项.登录shell || 默认登录shell });
   同步用户组界面();
 }
@@ -4177,6 +4238,23 @@ function 执行usermod(用户, 选项) {
       return;
     }
     用户.主组 = 选项.主组;
+  }
+
+  // -G：设置附加组；-aG：追加附加组（不覆盖原有附加组）
+  if (选项.附加组) {
+    const 不存在组 = 选项.附加组.filter((g) => !面板组组.some((组) => 组.名称 === g));
+    if (不存在组.length) {
+      显示错误(`usermod：组不存在：${不存在组.join("、")}`);
+      return;
+    }
+    if (选项.追加附加组) {
+      // 追加模式：把新组合并到现有附加组中（去重）
+      const 合并组 = new Set([...用户.附加组组, ...选项.附加组]);
+      用户.附加组组 = [...合并组];
+    } else {
+      // 覆盖模式：替换所有附加组
+      用户.附加组组 = [...选项.附加组];
+    }
   }
 
   // -l：修改用户名
@@ -4334,6 +4412,23 @@ function 执行groupdel(组名) {
 
   同步用户组界面();
   if (警告) 显示警告(警告);
+}
+
+// gpasswd -d：将用户从附加组中删除
+function 执行gpasswd(用户, 组名) {
+  // 目标组是用户的主组：报错（主组不能通过 -d 删除）
+  if (用户.主组 === 组名) {
+    显示错误(`gpasswd：无法将用户 ${用户.名称} 从组 ${组名} 中删除：该组是用户的主组`);
+    return;
+  }
+  // 用户不在该附加组中：给出警告提示
+  if (!用户.附加组组.includes(组名)) {
+    显示警告(`gpasswd：用户 ${用户.名称} 不在组 ${组名} 中，无需删除`);
+    return;
+  }
+  用户.附加组组 = 用户.附加组组.filter((g) => g !== 组名);
+  同步用户组界面();
+  显示成功(`已将用户 ${用户.名称} 从组 ${组名} 中删除`);
 }
 
 // ==================== 历史记录 ====================
@@ -5086,7 +5181,19 @@ function 绘制用户和组面板() {
     y += 面板.节点高 + 面板.节点垂直间距;
   }
   y = 节点起始Y;
+  // 先绘制所有用户的同名主组（与用户同Y坐标），再绘制其它附加组（往下移）
+  const 已绘制组 = new Set();
+  for (const 用户 of 面板用户组) {
+    const 主组名 = 用户.主组;
+    if (已绘制组.has(主组名)) continue;
+    已绘制组.add(主组名);
+    面板节点布局组.push({ 类型: "组", 名称: 主组名, x: 组列X, y, 宽: 列宽, 高: 面板.节点高 });
+    y += 面板.节点高 + 面板.节点垂直间距;
+  }
+  // 再绘制其它附加组（往下移）
   for (const 组 of 面板组组) {
+    if (已绘制组.has(组.名称)) continue;
+    已绘制组.add(组.名称);
     面板节点布局组.push({ 类型: "组", 名称: 组.名称, x: 组列X, y, 宽: 列宽, 高: 面板.节点高 });
     y += 面板.节点高 + 面板.节点垂直间距;
   }
